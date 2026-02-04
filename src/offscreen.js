@@ -59,19 +59,9 @@ let chunks = [];
 // Settings
 let currentLanguage = 'en';
 
-chrome.storage.sync.get('language', (items) => {
-    if (items.language) {
-        currentLanguage = items.language;
-    }
-});
-
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (changes.language) {
-        currentLanguage = changes.language.newValue;
-        // Optionally reset model or just next inference uses new language
-        // For Whisper, language is an input to generate(), so it handles it dynamicallly!
-    }
-});
+// Listen for settings updates from background
+// chrome.storage is not available in offscreen document? context issues.
+// We will receive settings from background.
 
 async function generate(audio) {
     if (processing) return;
@@ -195,15 +185,37 @@ async function processLoop() {
     setTimeout(processLoop, 200);
 }
 
-
 // Listen for messages
 chrome.runtime.onMessage.addListener((message) => {
     if (message.target === 'offscreen') {
         if (message.type === 'START_RECORDING') {
+            if (message.language) {
+                currentLanguage = message.language;
+            }
             startRecording(message.data);
+        } else if (message.type === 'STOP_RECORDING') {
+            stopRecording();
+        } else if (message.type === 'UPDATE_SETTINGS') {
+            if (message.settings && message.settings.language) {
+                currentLanguage = message.settings.language;
+            }
         }
     }
 });
+
+function stopRecording() {
+    processing = false;
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    // Also notify content to clear overlay?
+    chrome.runtime.sendMessage({
+        target: 'content',
+        type: 'SUBTITLE_UPDATE',
+        text: ''
+    });
+}
 
 // Preload model
 AutomaticSpeechRecognitionPipeline.getInstance((x) => console.log("Loading model:", x));
