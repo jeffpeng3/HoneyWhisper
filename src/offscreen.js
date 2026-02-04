@@ -143,6 +143,7 @@ async function startRecording(streamId) {
     scriptProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
 
     source.connect(scriptProcessor);
+    source.connect(audioContext.destination); // Connect to destination to hear the audio
     scriptProcessor.connect(audioContext.destination); // Connect to destination to keep it alive (and maybe hear it?)
     // If we connect to destination in offscreen, it might play nowhere or play in extension background.
     // Usually we want to Avoid hearing it double if we are just transcribing.
