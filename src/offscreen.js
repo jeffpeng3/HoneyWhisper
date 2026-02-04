@@ -4,7 +4,16 @@ import {
     WhisperForConditionalGeneration,
     TextStreamer,
     full,
+    env
 } from "@huggingface/transformers";
+
+// Configure local environment for Extensions (Manifest V3 Compliance)
+env.allowLocalModels = false; // We are fetching from cache/internet, but not local FS in Node sense
+env.useBrowserCache = true;
+// Point to local WASM files copied by Vite
+env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/wasm/');
+// We also need to configure the proxy/js path if it tries to load that
+// For transformers.js v3, it dynamically imports. We need to trick it or ensure `wasmPaths` handles the JS too if it looks for it there.
 
 const MAX_NEW_TOKENS = 64;
 const WHISPER_SAMPLING_RATE = 16_000;

@@ -27,7 +27,6 @@ async function setupOffscreenDocument(path) {
 
 async function startCapture(tabId) {
     const streamId = await chrome.tabCapture.getMediaStreamId({
-        consumerTabId: tabId,
         targetTabId: tabId,
     });
 
@@ -40,7 +39,7 @@ async function startCapture(tabId) {
 }
 
 chrome.action.onClicked.addListener(async (tab) => {
-    await setupOffscreenDocument('assets/offscreen.html');
+    await setupOffscreenDocument('src/offscreen.html');
 
     // Inject content script if not already there (optional, but good for safety)
     // Actually, manifest injects it, but we can programmatically inject to be sure
