@@ -5,19 +5,14 @@ import {
     env
 } from "@huggingface/transformers";
 import { MicVAD } from "@ricky0123/vad-web";
-import * as ort from "onnxruntime-web";
 
-console.log("Offscreen Script Loaded - Version 5.0 (vad-web)");
+console.log("Offscreen Script Loaded - Version 6.0 (Cleaned)");
 
 // Configure local environment for Extensions
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/wasm/');
 env.backends.onnx.logLevel = 'error';
-
-// Set onnx global for vad-web if needed, though it usually bundles its own reference or uses window.ort
-// configuring ort for vad-web specifically might be needed if it can't find wasm.
-// vad-web auto-detects.
 
 const MAX_NEW_TOKENS = 64;
 
@@ -85,9 +80,7 @@ function reportProgress(data) {
 async function loadModels() {
     try {
         reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing...' });
-
         await AutomaticSpeechRecognitionPipeline.getInstance((data) => reportProgress(data));
-
         reportProgress({ status: 'done', name: 'Whisper', file: 'Ready' });
         console.log("Whisper Model loaded");
     } catch (error) {
@@ -99,10 +92,7 @@ async function loadModels() {
 // Generate Subtitles
 async function generate(audio, isFinal = true) {
     if (processing) {
-        // If busy, we might queue or skip. For now, let's log and likely skip if very busy, 
-        // but since this is chunked by VAD, we generally want to process it.
-        // However, if we pile up, latency increases.
-        console.warn("Processing busy, queuing or skipping...");
+        console.warn("Processing busy, skipping...");
     }
     processing = true;
 
@@ -146,7 +136,7 @@ async function startRecording(streamId) {
     if (vadInstance) return;
 
     try {
-        await loadModels(); // Ensure Whisper is loaded
+        await loadModels();
 
         stream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -158,54 +148,33 @@ async function startRecording(streamId) {
             video: false
         });
 
-        // Restore Audio Playback (Route to speakers)
         if (!audioContext) {
             audioContext = new AudioContext();
         }
         const source = audioContext.createMediaStreamSource(stream);
         source.connect(audioContext.destination);
-        console.log("Audio routing restored.");
 
-        console.log("Stream Debug:", {
-            id: stream.id,
-            active: stream.active,
-            tracks: stream.getAudioTracks().map(t => ({ id: t.id, kind: t.kind, label: t.label, readyState: t.readyState }))
+        vadInstance = await MicVAD.new({
+            getStream: () => stream,
+            baseAssetPath: chrome.runtime.getURL('/'),
+            onnxWASMBasePath: chrome.runtime.getURL('assets/wasm/'),
+            positiveSpeechThreshold: 0.8,
+            negativeSpeechThreshold: 0.45,
+            redemptionMs: 50,
+            minSpeechMs: 300,
+            model: 'v5',
+            onSpeechStart: () => {
+                console.log("VAD: Speech Start");
+            },
+            onSpeechEnd: (audio) => {
+                const lenSec = audio.length / 16000;
+                console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
+                generate(audio, true);
+            },
+            onVADMisfire: () => {
+                console.log("VAD: Misfire");
+            }
         });
-
-        // Initialize vad-web
-
-        // HACK: Monkey Patch getUserMedia to bypass permissions check
-        // MicVAD calls this internally even if stream is provided, causing NotAllowedError in Offscreen
-        const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-        navigator.mediaDevices.getUserMedia = async (constraints) => {
-            console.log("Intercepted getUserMedia call from MicVAD");
-            return stream;
-        };
-
-        try {
-            vadInstance = await MicVAD.new({
-                stream: stream,
-                baseAssetPath: chrome.runtime.getURL('/'),
-                onnxWASMBasePath: chrome.runtime.getURL('assets/wasm/'),
-                positiveSpeechThreshold: 0.8,
-                negativeSpeechThreshold: 0.45,
-                redemptionMs: 100,
-                onSpeechStart: () => {
-                    console.log("VAD: Speech Start");
-                },
-                onSpeechEnd: (audio) => {
-                    const lenSec = audio.length / 16000;
-                    console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
-                    generate(audio, true);
-                },
-                onVADMisfire: () => {
-                    console.log("VAD: Misfire (Noise)");
-                }
-            });
-        } finally {
-            // Restore original
-            navigator.mediaDevices.getUserMedia = originalGetUserMedia;
-        }
 
         vadInstance.start();
         console.log("VAD Started");
@@ -251,7 +220,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } else if (message.type === 'STOP_RECORDING') {
                 stopRecording();
             } else if (message.type === 'UPDATE_SETTINGS') {
-                // ... settings updates ...
                 if (message.settings && message.settings.language) {
                     currentLanguage = message.settings.language;
                 }
