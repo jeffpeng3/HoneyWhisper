@@ -35,11 +35,31 @@
       Capturing: <a href="#" id="tabLink" style="color: #2563eb; text-decoration: none; font-weight: 500;">Tab Name</a>
   </div>
 
+  <div id="progressContainer" style="display:none; margin-bottom: 16px;">
+      <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-bottom:4px; color:#555;">
+          <span id="progressText">Loading Model...</span>
+          <span id="progressPercent">0%</span>
+      </div>
+      <div style="background:#e5e7eb; height:6px; border-radius:3px; overflow:hidden;">
+          <div id="progressBar" style="background:#3b82f6; height:100%; width:0%; transition: width 0.2s;"></div>
+      </div>
+  </div>
+
   <button id="btnState" class="btn-main btn-start">
     <span>Start Captioning</span>
   </button>
 
   <div class="settings">
+    <label for="modelId">Model (onnx-community)</label>
+    <select id="modelId">
+      <option value="onnx-community/whisper-tiny">Tiny (Fastest, Low VRAM)</option>
+      <option value="onnx-community/whisper-base">Base (Balanced)</option>
+      <option value="onnx-community/whisper-small">Small (High Quality, ~2GB VRAM)</option>
+      <option value="onnx-community/distil-small.en">Distil-Small English (Fast & Accurate)</option>
+      <option value="onnx-community/whisper-medium">Medium (Very High Quality, ~5GB VRAM)</option>
+      <option value="onnx-community/whisper-large-v3-turbo">Large v3 Turbo (Best, ~6GB VRAM)</option>
+    </select>
+
     <label for="language">Language</label>
     <select id="language">
       <option value="en">English</option>
@@ -55,6 +75,18 @@
     <label for="fontSize">Subtitle Size</label>
     <input type="range" id="fontSize" min="16" max="48" value="24">
     <div class="note">Preview: <span id="fontSizePreview" style="background:#000; color:#fff; padding:2px 4px; border-radius:4px;">Abc</span></div>
+  </div>
+
+  <div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px;">
+      <details>
+          <summary style="font-size:0.85em; color:#777; cursor:pointer;">Debug Tools</summary>
+          <div style="margin-top:8px;">
+              <button id="btnClearCache" style="width:100%; padding:8px; background:#fca5a5; color:#7f1d1d; border:none; border-radius:4px; font-size:0.9em; cursor:pointer;">
+                  Clear All Downloaded Models
+              </button>
+              <p class="note" style="margin-top:4px;">This will free up disk space. You will need to re-download models next time.</p>
+          </div>
+      </details>
   </div>
 
   <script type="module" src="popup.js"></script>

@@ -70,12 +70,20 @@ function createOverlay() {
 }
 
 chrome.runtime.onMessage.addListener((message) => {
+    // console.log("Content script received message:", message); // Verbose log
     if (message.target === 'content') {
         if (message.type === 'SUBTITLE_UPDATE') {
             createOverlay();
             const el = document.getElementById('webgpu-subtitle-overlay');
             if (el) {
+                console.log("Subtitle update:", message.text);
                 el.innerText = message.text;
+                el.style.display = 'block'; // Ensure visible
+                if (!message.text) {
+                    el.style.display = 'none';
+                }
+            } else {
+                console.warn("Subtitle overlay element not found even after createOverlay()");
             }
         } else if (message.type === 'UPDATE_SETTINGS') {
             const el = document.getElementById('webgpu-subtitle-overlay');
@@ -85,7 +93,29 @@ chrome.runtime.onMessage.addListener((message) => {
         } else if (message.type === 'REMOVE_OVERLAY') {
             const el = document.getElementById('webgpu-subtitle-overlay');
             if (el) {
-                el.remove();
+                el.style.display = 'none';
+                el.innerText = '';
+            }
+        } else if (message.type === 'MODEL_LOADING') {
+            const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
+            if (el) {
+                el.style.display = 'block';
+                if (message.data.status === 'progress') {
+                    // Update progress bar or text
+                    if (message.data.progress) {
+                        el.innerText = `Loading: ${Math.round(message.data.progress)}%`;
+                    }
+                } else if (message.data.status === 'done') {
+                    el.innerText = 'Model Ready';
+                    setTimeout(() => {
+                        if (el.innerText === 'Model Ready') {
+                            el.innerText = '';
+                            el.style.display = 'none';
+                        }
+                    }, 2000);
+                } else if (message.data.status === 'initiate') {
+                    el.innerText = 'Initiating Model...';
+                }
             }
         }
     }

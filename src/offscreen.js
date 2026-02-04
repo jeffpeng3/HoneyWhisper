@@ -3,27 +3,23 @@ import {
     AutoProcessor,
     WhisperForConditionalGeneration,
     TextStreamer,
-    full,
-    env
 } from "@huggingface/transformers";
+import { env } from "@huggingface/transformers";
+
+console.log("Offscreen Script Loaded - Version 2.0");
 
 // Configure local environment for Extensions (Manifest V3 Compliance)
-env.allowLocalModels = false; // We are fetching from cache/internet, but not local FS in Node sense
+env.allowLocalModels = false;
 env.useBrowserCache = true;
-// Point to local WASM files copied by Vite
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/wasm/');
-env.backends.onnx.logLevel = 'error'; // Suppress warnings
-// We also need to configure the proxy/js path if it tries to load that
-// For transformers.js v3, it dynamically imports. We need to trick it or ensure `wasmPaths` handles the JS too if it looks for it there.
+env.backends.onnx.logLevel = 'error';
 
 const MAX_NEW_TOKENS = 64;
 const WHISPER_SAMPLING_RATE = 16_000;
-const MAX_AUDIO_LENGTH = 30; // seconds
-const MAX_SAMPLES = WHISPER_SAMPLING_RATE * MAX_AUDIO_LENGTH;
 
 // Singleton Model Class
 class AutomaticSpeechRecognitionPipeline {
-    static model_id = "onnx-community/whisper-base";
+    static model_id = 'onnx-community/whisper-tiny';
     static tokenizer = null;
     static processor = null;
     static model = null;
@@ -40,7 +36,7 @@ class AutomaticSpeechRecognitionPipeline {
             this.model_id,
             {
                 dtype: {
-                    encoder_model: "fp32",
+                    encoder_model: "q4",
                     decoder_model_merged: "q4",
                 },
                 device: "webgpu",
@@ -50,23 +46,62 @@ class AutomaticSpeechRecognitionPipeline {
 
         return Promise.all([this.tokenizer, this.processor, this.model]);
     }
+
+    static async reset(new_model_id) {
+        this.model_id = new_model_id;
+        this.tokenizer = null;
+        this.processor = null;
+        if (this.model) {
+            console.log("Disposing old ONNX session...");
+            if (this.model.dispose) {
+                await this.model.dispose();
+            }
+        }
+        this.model = null;
+    }
 }
 
 let processing = false;
 let recorder = null;
 let audioContext = null;
-let chunks = [];
-
-// Settings
+let stream = null;
 let currentLanguage = 'en';
 
-// Listen for settings updates from background
-// chrome.storage is not available in offscreen document? context issues.
-// We will receive settings from background.
+// Progress Reporting
+function reportProgress(data) {
+    chrome.runtime.sendMessage({
+        type: 'MODEL_LOADING',
+        target: 'popup',
+        data
+    }).catch(() => { });
+}
 
+// Load Model
+async function loadModel() {
+    try {
+        reportProgress({ status: 'initiate', name: AutomaticSpeechRecognitionPipeline.model_id, file: 'model' });
+        await AutomaticSpeechRecognitionPipeline.getInstance((data) => {
+            reportProgress(data);
+        });
+        reportProgress({ status: 'done', name: AutomaticSpeechRecognitionPipeline.model_id, file: 'model' });
+        console.log("Model loaded successfully");
+    } catch (error) {
+        console.error("Model load error:", error);
+        reportProgress({ status: 'error', error: error.message });
+    }
+}
+
+// Generate Subtitles
 async function generate(audio) {
     if (processing) return;
     processing = true;
+
+    // Calculate max amplitude to verify audio input
+    let maxAmp = 0;
+    for (let i = 0; i < audio.length; i++) {
+        if (Math.abs(audio[i]) > maxAmp) maxAmp = Math.abs(audio[i]);
+    }
+    console.log(`Processing audio chunk: length=${audio.length}, maxAmp=${maxAmp.toFixed(4)}`);
 
     try {
         const [tokenizer, processor, model] =
@@ -74,9 +109,6 @@ async function generate(audio) {
 
         const inputs = await processor(audio);
 
-        // We can implement streaming here if we want partial updates
-        // For now, let's keep it simple: generate and send
-        // Use currentLanguage
         const outputs = await model.generate({
             ...inputs,
             max_new_tokens: MAX_NEW_TOKENS,
@@ -87,12 +119,15 @@ async function generate(audio) {
             skip_special_tokens: true,
         });
 
-        // Send output to background -> content
-        chrome.runtime.sendMessage({
-            target: 'content',
-            type: 'SUBTITLE_UPDATE',
-            text: decoded[0]
-        });
+        console.log("Generated Text:", decoded[0]);
+
+        if (decoded[0] && decoded[0].trim().length > 0) {
+            chrome.runtime.sendMessage({
+                target: 'content',
+                type: 'SUBTITLE_UPDATE',
+                text: decoded[0]
+            }).catch((err) => console.warn("Failed to send subtitle:", err));
+        }
 
     } catch (err) {
         console.error("Generation Error:", err);
@@ -101,120 +136,111 @@ async function generate(audio) {
     }
 }
 
-
-// Audio Processing State
-// audioContext is already declared above
-let audioWorkletNode = null;
-let audioBuffer = []; // Float32 Array of samples at 16k
-const BUFFER_SIZE = 4096;
-
-function resampleAndPush(inputData, sampleRate) {
-    // Simple resampler to 16000Hz
-    const targetSampleRate = WHISPER_SAMPLING_RATE;
-    const ratio = sampleRate / targetSampleRate;
-    const newLength = Math.round(inputData.length / ratio);
-
-    for (let i = 0; i < newLength; i++) {
-        const originalIndex = Math.floor(i * ratio);
-        // Basic nearest neighbor for speed, or linear interpolation
-        // Let's do nearest neighbor for simplicity in demo
-        if (originalIndex < inputData.length) {
-            audioBuffer.push(inputData[originalIndex]);
-        }
-    }
-
-    // Keep only last MAX_SAMPLES
-    if (audioBuffer.length > MAX_SAMPLES) {
-        audioBuffer.splice(0, audioBuffer.length - MAX_SAMPLES);
-    }
-}
-
+// Start Recording
 async function startRecording(streamId) {
-    if (audioContext) {
-        audioContext.close();
-    }
+    if (recorder) return;
+    if (processing) return;
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-            mandatory: {
-                chromeMediaSource: 'tab',
-                chromeMediaSourceId: streamId
-            }
-        },
-        video: false
-    });
-
-    audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-
-    // Use AudioWorkletNode
     try {
+        await AutomaticSpeechRecognitionPipeline.getInstance();
+
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                mandatory: {
+                    chromeMediaSource: 'tab',
+                    chromeMediaSourceId: streamId
+                }
+            },
+            video: false
+        });
+
+        audioContext = new AudioContext({ sampleRate: WHISPER_SAMPLING_RATE });
         await audioContext.audioWorklet.addModule(chrome.runtime.getURL('audio-processor.js'));
-        audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
 
-        source.connect(audioWorkletNode);
-        audioWorkletNode.connect(audioContext.destination); // Keep pipeline alive
+        const source = audioContext.createMediaStreamSource(stream);
+        recorder = new AudioWorkletNode(audioContext, 'audio-processor');
 
-        // Playback to user
-        source.connect(audioContext.destination);
+        source.connect(recorder);
+        recorder.connect(audioContext.destination); // Keep pipeline alive
+        source.connect(audioContext.destination);   // Playback to user
 
-        audioWorkletNode.port.onmessage = (e) => {
-            // e.data is Float32Array
-            resampleAndPush(e.data, audioContext.sampleRate);
+        recorder.port.onmessage = async (e) => {
+            const inputData = e.data;
+            if (processing) return;
+            // VAD could go here
+            if (inputData && inputData.length > 0) {
+                await generate(inputData);
+            }
         };
+
+        console.log("Recording started with AudioWorklet");
     } catch (err) {
-        console.error('Failed to load AudioWorklet:', err);
+        console.error("Error starting recording:", err);
     }
-
-    // Start processing loop
-    processing = false;
-    processLoop();
 }
-
-async function processLoop() {
-    if (!audioContext || audioContext.state === 'closed') return;
-
-    if (audioBuffer.length > WHISPER_SAMPLING_RATE * 1 && !processing) { // at least 1 second
-        // Clone buffer to avoid race conditions
-        const input = new Float32Array(audioBuffer);
-        await generate(input);
-    }
-
-    // Run often enough to feel real-time
-    setTimeout(processLoop, 200);
-}
-
-// Listen for messages
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.target === 'offscreen') {
-        if (message.type === 'START_RECORDING') {
-            if (message.language) {
-                currentLanguage = message.language;
-            }
-            startRecording(message.data);
-        } else if (message.type === 'STOP_RECORDING') {
-            stopRecording();
-        } else if (message.type === 'UPDATE_SETTINGS') {
-            if (message.settings && message.settings.language) {
-                currentLanguage = message.settings.language;
-            }
-        }
-    }
-});
 
 function stopRecording() {
     processing = false;
+    if (recorder) {
+        try {
+            recorder.disconnect();
+        } catch (e) { }
+        recorder = null;
+    }
     if (audioContext) {
-        audioContext.close();
+        try {
+            audioContext.close();
+        } catch (e) { }
         audioContext = null;
     }
-    // Also notify content to clear overlay?
+    stream = null;
+
     chrome.runtime.sendMessage({
         target: 'content',
         type: 'SUBTITLE_UPDATE',
         text: ''
-    });
+    }).catch(() => { });
 }
 
-// Preload model
-AutomaticSpeechRecognitionPipeline.getInstance((x) => console.log("Loading model:", x));
+// Message Listener
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    (async () => {
+        if (message.target === 'offscreen') {
+            if (message.type === 'START_RECORDING') {
+                if (message.language) {
+                    currentLanguage = message.language;
+                }
+                if (message.model_id && message.model_id !== AutomaticSpeechRecognitionPipeline.model_id) {
+                    console.log(`Switching model to ${message.model_id}`);
+                    if (typeof AutomaticSpeechRecognitionPipeline.reset === 'function') {
+                        await AutomaticSpeechRecognitionPipeline.reset(message.model_id);
+                        await loadModel();
+                    }
+                }
+                startRecording(message.data);
+            } else if (message.type === 'STOP_RECORDING') {
+                stopRecording();
+            } else if (message.type === 'UPDATE_SETTINGS') {
+                if (message.settings && message.settings.language) {
+                    currentLanguage = message.settings.language;
+                }
+                if (message.settings && message.settings.model_id && message.settings.model_id !== AutomaticSpeechRecognitionPipeline.model_id) {
+                    await AutomaticSpeechRecognitionPipeline.reset(message.settings.model_id);
+                    await loadModel();
+                }
+            } else if (message.type === 'CLEAR_CACHE') {
+                try {
+                    const names = await caches.keys();
+                    await Promise.all(names.map(name => caches.delete(name)));
+                    console.log("Caches cleared:", names);
+                    reportProgress({ status: 'error', error: 'Cache Cleared! Please reload.' });
+                } catch (err) {
+                    console.error("Failed to clear cache:", err);
+                }
+            }
+        }
+    })();
+});
+
+// Initial Load
+loadModel();
