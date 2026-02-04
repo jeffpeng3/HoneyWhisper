@@ -5,6 +5,7 @@
     "description": "Real-time speech-to-text using WebGPU Whisper",
     "permissions": [
         "tabCapture",
+        "audioCapture",
         "offscreen",
         "activeTab",
         "scripting",

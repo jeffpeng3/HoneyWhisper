@@ -2,22 +2,26 @@ import {
     AutoTokenizer,
     AutoProcessor,
     WhisperForConditionalGeneration,
-    TextStreamer,
+    env
 } from "@huggingface/transformers";
-import { env } from "@huggingface/transformers";
+import { MicVAD } from "@ricky0123/vad-web";
+import * as ort from "onnxruntime-web";
 
-console.log("Offscreen Script Loaded - Version 2.0");
+console.log("Offscreen Script Loaded - Version 5.0 (vad-web)");
 
-// Configure local environment for Extensions (Manifest V3 Compliance)
+// Configure local environment for Extensions
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/wasm/');
 env.backends.onnx.logLevel = 'error';
 
-const MAX_NEW_TOKENS = 64;
-const WHISPER_SAMPLING_RATE = 16_000;
+// Set onnx global for vad-web if needed, though it usually bundles its own reference or uses window.ort
+// configuring ort for vad-web specifically might be needed if it can't find wasm.
+// vad-web auto-detects.
 
-// Singleton Model Class
+const MAX_NEW_TOKENS = 64;
+
+// Singleton Whisper Model Class
 class AutomaticSpeechRecognitionPipeline {
     static model_id = 'onnx-community/whisper-tiny';
     static tokenizer = null;
@@ -61,13 +65,12 @@ class AutomaticSpeechRecognitionPipeline {
     }
 }
 
+// Global State
 let processing = false;
-let recorder = null;
-let audioContext = null;
 let stream = null;
 let currentLanguage = 'en';
-let audioQueue = [];
-let processInterval = null;
+let vadInstance = null;
+let audioContext = null;
 
 // Progress Reporting
 function reportProgress(data) {
@@ -78,15 +81,15 @@ function reportProgress(data) {
     }).catch(() => { });
 }
 
-// Load Model
-async function loadModel() {
+// Load Models (Only Whisper now)
+async function loadModels() {
     try {
-        reportProgress({ status: 'initiate', name: AutomaticSpeechRecognitionPipeline.model_id, file: 'model' });
-        await AutomaticSpeechRecognitionPipeline.getInstance((data) => {
-            reportProgress(data);
-        });
-        reportProgress({ status: 'done', name: AutomaticSpeechRecognitionPipeline.model_id, file: 'model' });
-        console.log("Model loaded successfully");
+        reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing...' });
+
+        await AutomaticSpeechRecognitionPipeline.getInstance((data) => reportProgress(data));
+
+        reportProgress({ status: 'done', name: 'Whisper', file: 'Ready' });
+        console.log("Whisper Model loaded");
     } catch (error) {
         console.error("Model load error:", error);
         reportProgress({ status: 'error', error: error.message });
@@ -94,16 +97,14 @@ async function loadModel() {
 }
 
 // Generate Subtitles
-async function generate(audio) {
-    if (processing) return;
-    processing = true;
-
-    // Calculate max amplitude to verify audio input
-    let maxAmp = 0;
-    for (let i = 0; i < audio.length; i++) {
-        if (Math.abs(audio[i]) > maxAmp) maxAmp = Math.abs(audio[i]);
+async function generate(audio, isFinal = true) {
+    if (processing) {
+        // If busy, we might queue or skip. For now, let's log and likely skip if very busy, 
+        // but since this is chunked by VAD, we generally want to process it.
+        // However, if we pile up, latency increases.
+        console.warn("Processing busy, queuing or skipping...");
     }
-    // console.log(`Processing audio buffer: ${audio.length / WHISPER_SAMPLING_RATE}s, maxAmp=${maxAmp.toFixed(4)}`);
+    processing = true;
 
     try {
         const [tokenizer, processor, model] =
@@ -121,14 +122,16 @@ async function generate(audio) {
             skip_special_tokens: true,
         });
 
-        console.log("Generated Text:", decoded[0]);
+        const text = decoded[0].trim();
+        console.log(`Generated: "${text}"`);
 
-        if (decoded[0] && decoded[0].trim().length > 0) {
+        if (text.length > 0) {
             chrome.runtime.sendMessage({
                 target: 'content',
                 type: 'SUBTITLE_UPDATE',
-                text: decoded[0]
-            }).catch((err) => console.warn("Failed to send subtitle:", err));
+                text: text,
+                isFinal: isFinal
+            }).catch((err) => { });
         }
 
     } catch (err) {
@@ -138,28 +141,12 @@ async function generate(audio) {
     }
 }
 
-async function processAudioQueue() {
-    if (processing) return;
-    if (audioQueue.length < WHISPER_SAMPLING_RATE * 1.0) return; // Wait for 1s context
-
-    // Limit buffer to 30s
-    if (audioQueue.length > WHISPER_SAMPLING_RATE * 30) {
-        audioQueue = audioQueue.slice(-WHISPER_SAMPLING_RATE * 30);
-    }
-
-    const input = new Float32Array(audioQueue);
-    await generate(input);
-}
-
-// Start Recording
+// Start Recording using vad-web
 async function startRecording(streamId) {
-    if (recorder) return;
-
-    // Reset buffer
-    audioQueue = [];
+    if (vadInstance) return;
 
     try {
-        await AutomaticSpeechRecognitionPipeline.getInstance();
+        await loadModels(); // Ensure Whisper is loaded
 
         stream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -171,33 +158,58 @@ async function startRecording(streamId) {
             video: false
         });
 
-        audioContext = new AudioContext({ sampleRate: WHISPER_SAMPLING_RATE });
-        await audioContext.audioWorklet.addModule(chrome.runtime.getURL('audio-processor.js'));
-
+        // Restore Audio Playback (Route to speakers)
+        if (!audioContext) {
+            audioContext = new AudioContext();
+        }
         const source = audioContext.createMediaStreamSource(stream);
-        recorder = new AudioWorkletNode(audioContext, 'audio-processor');
+        source.connect(audioContext.destination);
+        console.log("Audio routing restored.");
 
-        source.connect(recorder);
-        recorder.connect(audioContext.destination); // Keep pipeline alive
-        source.connect(audioContext.destination);   // Playback to user
+        console.log("Stream Debug:", {
+            id: stream.id,
+            active: stream.active,
+            tracks: stream.getAudioTracks().map(t => ({ id: t.id, kind: t.kind, label: t.label, readyState: t.readyState }))
+        });
 
-        recorder.port.onmessage = (e) => {
-            const inputData = e.data;
-            if (inputData && inputData.length > 0) {
-                // Append to queue
-                // e.data is Float32Array usually.
-                // Convert to normal array to push ... or just use TypedArray concat logic in process loop.
-                // Using array push for simplicity for now, performance is fine for 16k mono.
-                for (let i = 0; i < inputData.length; i++) {
-                    audioQueue.push(inputData[i]);
-                }
-            }
+        // Initialize vad-web
+
+        // HACK: Monkey Patch getUserMedia to bypass permissions check
+        // MicVAD calls this internally even if stream is provided, causing NotAllowedError in Offscreen
+        const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getUserMedia = async (constraints) => {
+            console.log("Intercepted getUserMedia call from MicVAD");
+            return stream;
         };
 
-        // Start processing loop
-        processInterval = setInterval(processAudioQueue, 200);
+        try {
+            vadInstance = await MicVAD.new({
+                stream: stream,
+                baseAssetPath: chrome.runtime.getURL('/'),
+                onnxWASMBasePath: chrome.runtime.getURL('assets/wasm/'),
+                positiveSpeechThreshold: 0.8,
+                negativeSpeechThreshold: 0.45,
+                redemptionMs: 100,
+                onSpeechStart: () => {
+                    console.log("VAD: Speech Start");
+                },
+                onSpeechEnd: (audio) => {
+                    const lenSec = audio.length / 16000;
+                    console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
+                    generate(audio, true);
+                },
+                onVADMisfire: () => {
+                    console.log("VAD: Misfire (Noise)");
+                }
+            });
+        } finally {
+            // Restore original
+            navigator.mediaDevices.getUserMedia = originalGetUserMedia;
+        }
 
-        console.log("Recording started with AudioWorklet");
+        vadInstance.start();
+        console.log("VAD Started");
+
     } catch (err) {
         console.error("Error starting recording:", err);
     }
@@ -205,25 +217,16 @@ async function startRecording(streamId) {
 
 function stopRecording() {
     processing = false;
-    if (processInterval) {
-        clearInterval(processInterval);
-        processInterval = null;
-    }
-    audioQueue = []; // Clear buffer
 
-    if (recorder) {
-        try {
-            recorder.disconnect();
-        } catch (e) { }
-        recorder = null;
+    if (vadInstance) {
+        vadInstance.pause();
+        vadInstance = null;
     }
-    if (audioContext) {
-        try {
-            audioContext.close();
-        } catch (e) { }
-        audioContext = null;
+
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
     }
-    stream = null;
 
     chrome.runtime.sendMessage({
         target: 'content',
@@ -241,29 +244,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     currentLanguage = message.language;
                 }
                 if (message.model_id && message.model_id !== AutomaticSpeechRecognitionPipeline.model_id) {
-                    console.log(`Switching model to ${message.model_id}`);
-                    if (typeof AutomaticSpeechRecognitionPipeline.reset === 'function') {
-                        await AutomaticSpeechRecognitionPipeline.reset(message.model_id);
-                        await loadModel();
-                    }
+                    await AutomaticSpeechRecognitionPipeline.reset(message.model_id);
+                    await loadModels();
                 }
                 startRecording(message.data);
             } else if (message.type === 'STOP_RECORDING') {
                 stopRecording();
             } else if (message.type === 'UPDATE_SETTINGS') {
+                // ... settings updates ...
                 if (message.settings && message.settings.language) {
                     currentLanguage = message.settings.language;
-                }
-                if (message.settings && message.settings.model_id && message.settings.model_id !== AutomaticSpeechRecognitionPipeline.model_id) {
-                    await AutomaticSpeechRecognitionPipeline.reset(message.settings.model_id);
-                    await loadModel();
                 }
             } else if (message.type === 'CLEAR_CACHE') {
                 try {
                     const names = await caches.keys();
                     await Promise.all(names.map(name => caches.delete(name)));
                     console.log("Caches cleared:", names);
-                    reportProgress({ status: 'error', error: 'Cache Cleared! Please reload.' });
                 } catch (err) {
                     console.error("Failed to clear cache:", err);
                 }
@@ -273,4 +269,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Initial Load
-loadModel();
+loadModels();
