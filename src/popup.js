@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check recording state (we need to ask background)
     const response = await chrome.runtime.sendMessage({ type: 'GET_STATE' });
     if (response && response.isRecording) {
-        setRecordingState(true);
+        setRecordingState(true, response.currentTabId);
     }
 });
 
@@ -70,20 +70,44 @@ btnState.addEventListener('click', async () => {
     }
 });
 
-function setRecordingState(recording) {
+const tabLink = document.getElementById('tabLink');
+tabLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const tabId = parseInt(tabLink.dataset.tabId);
+    if (tabId) {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab) {
+            chrome.tabs.update(tab.id, { active: true });
+            chrome.windows.update(tab.windowId, { focused: true });
+        }
+    }
+});
+
+async function setRecordingState(recording, tabId = null) {
     isRecording = recording;
+    const activeTabInfo = document.getElementById('activeTabInfo');
+
     if (recording) {
         btnState.className = 'btn-main btn-stop';
         btnState.innerText = 'Stop Captioning';
         statusBadge.className = 'status-badge status-recording';
         statusBadge.innerText = 'Recording';
+
+        if (tabId) {
+            try {
+                const tab = await chrome.tabs.get(tabId);
+                tabLink.innerText = tab.title.length > 25 ? tab.title.substring(0, 25) + '...' : tab.title;
+                tabLink.dataset.tabId = tabId;
+                activeTabInfo.style.display = 'block';
+            } catch (e) {
+                activeTabInfo.style.display = 'none';
+            }
+        }
     } else {
         btnState.className = 'btn-main btn-start';
         btnState.innerText = 'Start Captioning';
         statusBadge.className = 'status-badge';
         statusBadge.innerText = 'Ready';
-
-        // Reload extension execution to fully clean up webgpu/audio contexts if needed?
-        // Or simply send stop message.
+        activeTabInfo.style.display = 'none';
     }
 }

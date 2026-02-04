@@ -82,6 +82,11 @@ chrome.runtime.onMessage.addListener((message) => {
             if (el && message.settings.fontSize) {
                 el.style.fontSize = `${message.settings.fontSize}px`;
             }
+        } else if (message.type === 'REMOVE_OVERLAY') {
+            const el = document.getElementById('webgpu-subtitle-overlay');
+            if (el) {
+                el.remove();
+            }
         }
     }
 });

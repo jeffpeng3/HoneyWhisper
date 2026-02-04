@@ -1,6 +1,7 @@
 // background.js
 let offscreenCreating;
 let isRecording = false;
+let currentTabId = null;
 
 // Check if offscreen document exists
 async function hasOffscreenDocument(path) {
@@ -31,6 +32,8 @@ async function startCapture(tabId) {
         targetTabId: tabId,
     });
 
+    currentTabId = tabId;
+
     // Get settings
     const { language } = await chrome.storage.sync.get({ language: 'en' });
 
@@ -55,6 +58,7 @@ async function stopCapture() {
         // Ignore sending error if offscreen is gone
     }
     isRecording = false;
+    currentTabId = null;
 
     // Close offscreen to release WebGPU resources
     if (await hasOffscreenDocument('src/offscreen.html')) {
@@ -64,6 +68,18 @@ async function stopCapture() {
             console.error('Error closing offscreen document:', err);
         }
     }
+
+    // Notify content to remove overlay
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+                target: 'content',
+                type: 'REMOVE_OVERLAY'
+            }).catch(() => {
+                // Ignore errors
+            });
+        }
+    });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -83,7 +99,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             await stopCapture();
         }
         else if (message.type === 'GET_STATE') {
-            sendResponse({ isRecording });
+            sendResponse({ isRecording, currentTabId });
         }
     };
 
@@ -107,4 +123,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // But let's verification popup.js behavior.
 
     return true; // Keep channel open for async response
+});
+
+// Auto-stop when tab is reloaded or closed
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (isRecording && tabId === currentTabId && changeInfo.status === 'loading') {
+        stopCapture();
+    }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (isRecording && tabId === currentTabId) {
+        stopCapture();
+    }
 });
