@@ -1,0 +1,27 @@
+{
+    "extends": "./.wxt/tsconfig.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "./src/*"
+            ],
+            "$lib/*": [
+                "./src/lib/*"
+            ],
+            "#i18n": [
+                "./.wxt/i18n/index.ts"
+            ],
+            "#i18n/*": [
+                "./.wxt/i18n/index.ts/*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*",
+        "src/**/*.svelte",
+        "entrypoints/**/*",
+        "entrypoints/**/*.svelte",
+        ".wxt/types/**/*.d.ts"
+    ]
+}

@@ -1,0 +1,33 @@
+name: 推薦新模型 (Recommend New Model)
+description: 推薦新模型至 Model Hub
+title: "[Model Recommendation]: "
+labels: ["enhancement", "model-recommendation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝您建議新的模型！請填寫以下資訊以協助我們評估。
+  - type: input
+    id: model_id
+    attributes:
+      label: 模型 ID (Model ID)
+      description: "請提供 Hugging Face 或其他來源的模型 ID (例如: onnx-community/whisper-tiny)"
+      placeholder: onnx-community/whisper-tiny
+    validations:
+      required: true
+  - type: input
+    id: model_name
+    attributes:
+      label: 模型名稱與描述 (Model Name & Description)
+      description: "請提供模型的顯示名稱與簡短描述 (例如: Tiny (Fastest, Low VRAM))"
+      placeholder: Tiny (Fastest, Low VRAM)
+    validations:
+      required: true
+  - type: textarea
+    id: justification
+    attributes:
+      label: 推薦理由 (Justification)
+      description: 為什麼這個模型應該被加入？(例如：更準確、更有特定語言優勢等)
+      placeholder: 此模型在...方面表現優異
+    validations:
+      required: false

@@ -1,0 +1,61 @@
+name: Build HoneyWhisper Extension
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '25'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build and package extension
+      run: npm run zip
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: honey-whisper-extension
+        path: .output/*-chrome.zip
+        retention-days: 7
+
+    # ------------------------------------------------------------------
+    # Future: Auto-Publish to Chrome Web Store
+    # ------------------------------------------------------------------
+    # Step: Upload to Chrome Web Store
+    # Uses: mobilefirstllc/cws-publish@latest (or similar action)
+    #
+    # Prerequisites:
+    # 1. Get keys from Google Cloud Console (Client ID, Client Secret, Refresh Token)
+    # 2. Add them to repository secrets:
+    #    - CWS_CLIENT_ID
+    #    - CWS_CLIENT_SECRET
+    #    - CWS_REFRESH_TOKEN
+    #    - CWS_EXTENSION_ID (from Chrome Web Store Dashboard)
+    #
+    # Uncomment the following block when ready:
+    #
+    # - name: Publish to Chrome Web Store
+    #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #   uses: mobilefirstllc/cws-publish@latest
+    #   with:
+    #     action: 'upload'  # Use 'publish' to release immediately, 'upload' for draft
+    #     client_id: ${{ secrets.CWS_CLIENT_ID }}
+    #     client_secret: ${{ secrets.CWS_CLIENT_SECRET }}
+    #     refresh_token: ${{ secrets.CWS_REFRESH_TOKEN }}
+    #     extension_id: ${{ secrets.CWS_EXTENSION_ID }}
+    #     zip_file: honey-whisper-extension.zip
