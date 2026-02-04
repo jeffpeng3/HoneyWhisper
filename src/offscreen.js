@@ -66,6 +66,8 @@ let recorder = null;
 let audioContext = null;
 let stream = null;
 let currentLanguage = 'en';
+let audioQueue = [];
+let processInterval = null;
 
 // Progress Reporting
 function reportProgress(data) {
@@ -101,7 +103,7 @@ async function generate(audio) {
     for (let i = 0; i < audio.length; i++) {
         if (Math.abs(audio[i]) > maxAmp) maxAmp = Math.abs(audio[i]);
     }
-    console.log(`Processing audio chunk: length=${audio.length}, maxAmp=${maxAmp.toFixed(4)}`);
+    // console.log(`Processing audio buffer: ${audio.length / WHISPER_SAMPLING_RATE}s, maxAmp=${maxAmp.toFixed(4)}`);
 
     try {
         const [tokenizer, processor, model] =
@@ -136,10 +138,25 @@ async function generate(audio) {
     }
 }
 
+async function processAudioQueue() {
+    if (processing) return;
+    if (audioQueue.length < WHISPER_SAMPLING_RATE * 1.0) return; // Wait for 1s context
+
+    // Limit buffer to 30s
+    if (audioQueue.length > WHISPER_SAMPLING_RATE * 30) {
+        audioQueue = audioQueue.slice(-WHISPER_SAMPLING_RATE * 30);
+    }
+
+    const input = new Float32Array(audioQueue);
+    await generate(input);
+}
+
 // Start Recording
 async function startRecording(streamId) {
     if (recorder) return;
-    if (processing) return;
+
+    // Reset buffer
+    audioQueue = [];
 
     try {
         await AutomaticSpeechRecognitionPipeline.getInstance();
@@ -164,14 +181,21 @@ async function startRecording(streamId) {
         recorder.connect(audioContext.destination); // Keep pipeline alive
         source.connect(audioContext.destination);   // Playback to user
 
-        recorder.port.onmessage = async (e) => {
+        recorder.port.onmessage = (e) => {
             const inputData = e.data;
-            if (processing) return;
-            // VAD could go here
             if (inputData && inputData.length > 0) {
-                await generate(inputData);
+                // Append to queue
+                // e.data is Float32Array usually.
+                // Convert to normal array to push ... or just use TypedArray concat logic in process loop.
+                // Using array push for simplicity for now, performance is fine for 16k mono.
+                for (let i = 0; i < inputData.length; i++) {
+                    audioQueue.push(inputData[i]);
+                }
             }
         };
+
+        // Start processing loop
+        processInterval = setInterval(processAudioQueue, 200);
 
         console.log("Recording started with AudioWorklet");
     } catch (err) {
@@ -181,6 +205,12 @@ async function startRecording(streamId) {
 
 function stopRecording() {
     processing = false;
+    if (processInterval) {
+        clearInterval(processInterval);
+        processInterval = null;
+    }
+    audioQueue = []; // Clear buffer
+
     if (recorder) {
         try {
             recorder.disconnect();
