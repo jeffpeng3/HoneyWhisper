@@ -8,9 +8,10 @@ let autoCloseOnReady = false;
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     // Restore Settings
-    chrome.storage.sync.get({ language: 'en', fontSize: '24', model_id: 'onnx-community/whisper-tiny' }, (items) => {
+    chrome.storage.sync.get({ language: 'en', fontSize: '24', model_id: 'onnx-community/whisper-tiny', historyLines: 1 }, (items) => {
         document.getElementById('language').value = items.language;
         document.getElementById('fontSize').value = items.fontSize;
+        document.getElementById('historyLines').value = items.historyLines;
         if (items.model_id) document.getElementById('modelId').value = items.model_id;
         updatePreview(items.fontSize);
     });
@@ -27,14 +28,15 @@ const updateSettings = () => {
     const language = document.getElementById('language').value;
     const fontSize = document.getElementById('fontSize').value;
     const model_id = document.getElementById('modelId').value;
+    const historyLines = document.getElementById('historyLines').value;
 
-    chrome.storage.sync.set({ language, fontSize, model_id });
+    chrome.storage.sync.set({ language, fontSize, model_id, historyLines });
 
     // Notify active tabs about font size change immediately
     chrome.runtime.sendMessage({
         target: 'content',
         type: 'UPDATE_SETTINGS',
-        settings: { fontSize }
+        settings: { fontSize, historyLines }
     });
 
     // Notify offscreen about settings change
@@ -47,6 +49,7 @@ const updateSettings = () => {
 
 document.getElementById('modelId').addEventListener('change', updateSettings);
 document.getElementById('language').addEventListener('change', updateSettings);
+document.getElementById('historyLines').addEventListener('change', updateSettings);
 document.getElementById('fontSize').addEventListener('input', (e) => {
     updatePreview(e.target.value);
     updateSettings(); // Debounce this in production, but okay for local

@@ -66,6 +66,7 @@ let stream = null;
 let currentLanguage = 'en';
 let vadInstance = null;
 let audioContext = null;
+let sourceNode = null;
 
 // Progress Reporting
 function reportProgress(data) {
@@ -102,11 +103,16 @@ async function generate(audio, isFinal = true) {
 
         const inputs = await processor(audio);
 
-        const outputs = await model.generate({
+        const generateOptions = {
             ...inputs,
             max_new_tokens: MAX_NEW_TOKENS,
-            language: currentLanguage,
-        });
+        };
+
+        if (currentLanguage && currentLanguage !== 'auto') {
+            generateOptions.language = currentLanguage;
+        }
+
+        const outputs = await model.generate(generateOptions);
 
         const decoded = tokenizer.batch_decode(outputs, {
             skip_special_tokens: true,
@@ -148,11 +154,19 @@ async function startRecording(streamId) {
             video: false
         });
 
+        // Restore Audio Playback (Route to speakers) & Optimize Lifecycle
         if (!audioContext) {
             audioContext = new AudioContext();
         }
-        const source = audioContext.createMediaStreamSource(stream);
-        source.connect(audioContext.destination);
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        if (sourceNode) {
+            sourceNode.disconnect();
+        }
+        sourceNode = audioContext.createMediaStreamSource(stream);
+        sourceNode.connect(audioContext.destination);
 
         vadInstance = await MicVAD.new({
             getStream: () => stream,
@@ -161,7 +175,7 @@ async function startRecording(streamId) {
             positiveSpeechThreshold: 0.8,
             negativeSpeechThreshold: 0.45,
             redemptionMs: 50,
-            minSpeechMs: 300,
+            minSpeechMs: 100,
             model: 'v5',
             onSpeechStart: () => {
                 console.log("VAD: Speech Start");
@@ -195,6 +209,12 @@ function stopRecording() {
     if (stream) {
         stream.getTracks().forEach(t => t.stop());
         stream = null;
+    }
+
+    // Cleanup Audio Routing
+    if (sourceNode) {
+        sourceNode.disconnect();
+        sourceNode = null;
     }
 
     chrome.runtime.sendMessage({
