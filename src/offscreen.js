@@ -1,0 +1,181 @@
+import {
+    AutoTokenizer,
+    AutoProcessor,
+    WhisperForConditionalGeneration,
+    TextStreamer,
+    full,
+} from "@huggingface/transformers";
+
+const MAX_NEW_TOKENS = 64;
+const WHISPER_SAMPLING_RATE = 16_000;
+const MAX_AUDIO_LENGTH = 30; // seconds
+const MAX_SAMPLES = WHISPER_SAMPLING_RATE * MAX_AUDIO_LENGTH;
+
+// Singleton Model Class
+class AutomaticSpeechRecognitionPipeline {
+    static model_id = "onnx-community/whisper-base";
+    static tokenizer = null;
+    static processor = null;
+    static model = null;
+
+    static async getInstance(progress_callback = null) {
+        this.tokenizer ??= AutoTokenizer.from_pretrained(this.model_id, {
+            progress_callback,
+        });
+        this.processor ??= AutoProcessor.from_pretrained(this.model_id, {
+            progress_callback,
+        });
+
+        this.model ??= WhisperForConditionalGeneration.from_pretrained(
+            this.model_id,
+            {
+                dtype: {
+                    encoder_model: "fp32",
+                    decoder_model_merged: "q4",
+                },
+                device: "webgpu",
+                progress_callback,
+            },
+        );
+
+        return Promise.all([this.tokenizer, this.processor, this.model]);
+    }
+}
+
+let processing = false;
+let recorder = null;
+let audioContext = null;
+let chunks = [];
+
+async function generate(audio, language = 'en') {
+    if (processing) return;
+    processing = true;
+
+    try {
+        const [tokenizer, processor, model] =
+            await AutomaticSpeechRecognitionPipeline.getInstance();
+
+        const inputs = await processor(audio);
+
+        // We can implement streaming here if we want partial updates
+        // For now, let's keep it simple: generate and send
+        const outputs = await model.generate({
+            ...inputs,
+            max_new_tokens: MAX_NEW_TOKENS,
+            language,
+        });
+
+        const decoded = tokenizer.batch_decode(outputs, {
+            skip_special_tokens: true,
+        });
+
+        // Send output to background -> content
+        chrome.runtime.sendMessage({
+            target: 'content',
+            type: 'SUBTITLE_UPDATE',
+            text: decoded[0]
+        });
+
+    } catch (err) {
+        console.error("Generation Error:", err);
+    } finally {
+        processing = false;
+    }
+}
+
+
+// Audio Processing State
+// audioContext is already declared above
+let scriptProcessor = null;
+let audioBuffer = []; // Float32 Array of samples at 16k
+const BUFFER_SIZE = 4096;
+
+function resampleAndPush(inputData, sampleRate) {
+    // Simple resampler to 16000Hz
+    const targetSampleRate = WHISPER_SAMPLING_RATE;
+    const ratio = sampleRate / targetSampleRate;
+    const newLength = Math.round(inputData.length / ratio);
+
+    for (let i = 0; i < newLength; i++) {
+        const originalIndex = Math.floor(i * ratio);
+        // Basic nearest neighbor for speed, or linear interpolation
+        // Let's do nearest neighbor for simplicity in demo
+        if (originalIndex < inputData.length) {
+            audioBuffer.push(inputData[originalIndex]);
+        }
+    }
+
+    // Keep only last MAX_SAMPLES
+    if (audioBuffer.length > MAX_SAMPLES) {
+        audioBuffer.splice(0, audioBuffer.length - MAX_SAMPLES);
+    }
+}
+
+async function startRecording(streamId) {
+    if (audioContext) {
+        audioContext.close();
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+            mandatory: {
+                chromeMediaSource: 'tab',
+                chromeMediaSourceId: streamId
+            }
+        },
+        video: false
+    });
+
+    audioContext = new AudioContext(); // Browser default rate (usually 44100 or 48000)
+    const source = audioContext.createMediaStreamSource(stream);
+
+    // Use ScriptProcessor (bufferSize, inputChannels, outputChannels)
+    // 4096 samples @ 48kHz is ~85ms
+    scriptProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+
+    source.connect(scriptProcessor);
+    scriptProcessor.connect(audioContext.destination); // Connect to destination to keep it alive (and maybe hear it?)
+    // If we connect to destination in offscreen, it might play nowhere or play in extension background.
+    // Usually we want to Avoid hearing it double if we are just transcribing.
+    // But ScriptProcessor stops if not connected to destination in some browsers.
+    // Let's connect it. If it echoes, we will create a GainNode(0).
+    const gainZero = audioContext.createGain();
+    gainZero.gain.value = 0;
+    scriptProcessor.connect(gainZero);
+    gainZero.connect(audioContext.destination);
+
+    scriptProcessor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        resampleAndPush(inputData, audioContext.sampleRate);
+    };
+
+    // Start processing loop
+    processing = false;
+    processLoop();
+}
+
+async function processLoop() {
+    if (!audioContext || audioContext.state === 'closed') return;
+
+    if (audioBuffer.length > WHISPER_SAMPLING_RATE * 1 && !processing) { // at least 1 second
+        // Clone buffer to avoid race conditions
+        const input = new Float32Array(audioBuffer);
+        await generate(input);
+    }
+
+    // Run often enough to feel real-time
+    setTimeout(processLoop, 200);
+}
+
+
+// Listen for messages
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.target === 'offscreen') {
+        if (message.type === 'START_RECORDING') {
+            startRecording(message.data);
+        }
+    }
+});
+
+// Preload model
+AutomaticSpeechRecognitionPipeline.getInstance((x) => console.log("Loading model:", x));
