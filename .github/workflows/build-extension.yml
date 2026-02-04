@@ -1,0 +1,67 @@
+name: Build HoneyWhisper Extension
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build extension
+      run: npm run build
+
+    - name: Package extension (Zip)
+      run: |
+        cd dist
+        zip -r ../honey-whisper-extension.zip ./*
+        cd ..
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: honey-whisper-extension
+        path: honey-whisper-extension.zip
+        retention-days: 7
+
+    # ------------------------------------------------------------------
+    # Future: Auto-Publish to Chrome Web Store
+    # ------------------------------------------------------------------
+    # Step: Upload to Chrome Web Store
+    # Uses: mobilefirstllc/cws-publish@latest (or similar action)
+    #
+    # Prerequisites:
+    # 1. Get keys from Google Cloud Console (Client ID, Client Secret, Refresh Token)
+    # 2. Add them to repository secrets:
+    #    - CWS_CLIENT_ID
+    #    - CWS_CLIENT_SECRET
+    #    - CWS_REFRESH_TOKEN
+    #    - CWS_EXTENSION_ID (from Chrome Web Store Dashboard)
+    #
+    # Uncomment the following block when ready:
+    #
+    # - name: Publish to Chrome Web Store
+    #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #   uses: mobilefirstllc/cws-publish@latest
+    #   with:
+    #     action: 'upload'  # Use 'publish' to release immediately, 'upload' for draft
+    #     client_id: ${{ secrets.CWS_CLIENT_ID }}
+    #     client_secret: ${{ secrets.CWS_CLIENT_SECRET }}
+    #     refresh_token: ${{ secrets.CWS_REFRESH_TOKEN }}
+    #     extension_id: ${{ secrets.CWS_EXTENSION_ID }}
+    #     zip_file: honey-whisper-extension.zip
