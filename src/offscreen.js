@@ -56,7 +56,24 @@ let recorder = null;
 let audioContext = null;
 let chunks = [];
 
-async function generate(audio, language = 'en') {
+// Settings
+let currentLanguage = 'en';
+
+chrome.storage.sync.get('language', (items) => {
+    if (items.language) {
+        currentLanguage = items.language;
+    }
+});
+
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (changes.language) {
+        currentLanguage = changes.language.newValue;
+        // Optionally reset model or just next inference uses new language
+        // For Whisper, language is an input to generate(), so it handles it dynamicallly!
+    }
+});
+
+async function generate(audio) {
     if (processing) return;
     processing = true;
 
@@ -68,10 +85,11 @@ async function generate(audio, language = 'en') {
 
         // We can implement streaming here if we want partial updates
         // For now, let's keep it simple: generate and send
+        // Use currentLanguage
         const outputs = await model.generate({
             ...inputs,
             max_new_tokens: MAX_NEW_TOKENS,
-            language,
+            language: currentLanguage,
         });
 
         const decoded = tokenizer.batch_decode(outputs, {

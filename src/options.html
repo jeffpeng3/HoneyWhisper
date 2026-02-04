@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Settings - WebGPU Real-time Captions</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+    h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    .section { margin-bottom: 24px; }
+    label { display: block; margin-bottom: 8px; font-weight: 500; }
+    select, input[type="range"] { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; margin-bottom: 4px; }
+    .note { font-size: 0.85em; color: #666; margin-top: 4px; }
+    button { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 1em; }
+    button:hover { background: #2563eb; }
+    #status { margin-top: 10px; color: green; font-weight: bold; opacity: 0; transition: opacity 0.5s; }
+  </style>
+</head>
+<body>
+  <h1>Settings</h1>
+
+  <div class="section">
+    <label for="language">Source Language</label>
+    <select id="language">
+      <option value="en">English</option>
+      <option value="zh">Chinese (中文)</option>
+      <option value="ja">Japanese (日本語)</option>
+      <option value="es">Spanish (Español)</option>
+      <option value="fr">French (Français)</option>
+      <option value="de">German (Deutsch)</option>
+      <option value="ko">Korean (한국어)</option>
+      <option value="auto">Auto Detect (Experimental)</option>
+    </select>
+    <div class="note">Language spoken in the audio. Changing this requires reloading the model.</div>
+  </div>
+<!--
+  <div class="section">
+    <label for="task">Mode</label>
+    <select id="task">
+      <option value="transcribe">Transcribe (Keep original language)</option>
+      <option value="translate">Translate to English</option>
+    </select>
+  </div>
+-->
+  <div class="section">
+    <label for="fontSize">Subtitle Font Size</label>
+    <input type="range" id="fontSize" min="16" max="48" value="24">
+    <div class="note">Preview: <span id="fontSizePreview" style="background:#000; color:#fff; padding:2px 4px; border-radius:4px;">Sample Text</span></div>
+  </div>
+
+  <button id="save">Save Settings</button>
+  <div id="status">Settings Saved!</div>
+
+  <script src="options.js"></script>
+</body>
+</html>

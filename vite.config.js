@@ -23,6 +23,7 @@ export default defineConfig({
         offscreen: resolve(__dirname, 'src/offscreen.html'),
         background: resolve(__dirname, 'src/background.js'),
         content: resolve(__dirname, 'src/content.js'),
+        options: resolve(__dirname, 'src/options.html'),
       },
       output: {
         entryFileNames: 'assets/[name].js',
