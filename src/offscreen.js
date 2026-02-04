@@ -1,7 +1,5 @@
 import {
-    AutoTokenizer,
-    AutoProcessor,
-    AutoModelForSpeechSeq2Seq,
+    pipeline,
     env
 } from "@huggingface/transformers";
 import { MicVAD } from "@ricky0123/vad-web";
@@ -20,42 +18,36 @@ const MAX_NEW_TOKENS = 64;
 class AutomaticSpeechRecognitionPipeline {
     static model_id = 'onnx-community/whisper-tiny';
     static quantization = 'q4';
-    static tokenizer = null;
-    static processor = null;
-    static model = null;
+    static transcriber = null;
 
     static async getInstance(progress_callback = null) {
-        this.tokenizer ??= AutoTokenizer.from_pretrained(this.model_id, {
-            progress_callback,
-        });
-        this.processor ??= AutoProcessor.from_pretrained(this.model_id, {
-            progress_callback,
-        });
+        if (this.transcriber) return this.transcriber;
 
-        this.model ??= AutoModelForSpeechSeq2Seq.from_pretrained(
+        this.transcriber = await pipeline(
+            "automatic-speech-recognition",
             this.model_id,
             {
                 dtype: this.quantization,
                 device: "webgpu",
                 progress_callback,
-            },
+            }
         );
 
-        return Promise.all([this.tokenizer, this.processor, this.model]);
+        return this.transcriber;
     }
 
     static async reset(new_model_id, new_quantization = 'q4') {
         this.model_id = new_model_id;
         this.quantization = new_quantization;
-        this.tokenizer = null;
-        this.processor = null;
-        if (this.model) {
-            console.log("Disposing old ONNX session...");
-            if (this.model.dispose) {
-                await this.model.dispose();
+
+        if (this.transcriber) {
+            console.log("Disposing old pipeline...");
+            // Attempt to dispose the underlying model if accessible
+            if (this.transcriber.model && this.transcriber.model.dispose) {
+                await this.transcriber.model.dispose();
             }
         }
-        this.model = null;
+        this.transcriber = null;
     }
 }
 
@@ -76,15 +68,15 @@ function reportProgress(data) {
     }).catch(() => { });
 }
 
-// Load Models (Only Whisper now)
+// Load Models
 async function loadModels() {
     try {
-        reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing...' });
+        reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing Pipeline...' });
         await AutomaticSpeechRecognitionPipeline.getInstance((data) => reportProgress(data));
         reportProgress({ status: 'done', name: 'Whisper', file: 'Ready' });
-        console.log("Whisper Model loaded");
+        console.log("Whisper Pipeline loaded");
     } catch (error) {
-        console.error("Model load error:", error);
+        console.error("Pipeline load error:", error);
         reportProgress({ status: 'error', error: error.message });
     }
 }
@@ -97,27 +89,20 @@ async function generate(audio, isFinal = true) {
     processing = true;
 
     try {
-        const [tokenizer, processor, model] =
-            await AutomaticSpeechRecognitionPipeline.getInstance();
-
-        const inputs = await processor(audio);
+        const transcriber = await AutomaticSpeechRecognitionPipeline.getInstance();
 
         const generateOptions = {
-            ...inputs,
             max_new_tokens: MAX_NEW_TOKENS,
+            return_timestamps: false,
         };
 
         if (currentLanguage && currentLanguage !== 'auto') {
             generateOptions.language = currentLanguage;
         }
 
-        const outputs = await model.generate(generateOptions);
+        const output = await transcriber(audio, generateOptions);
+        const text = output.text.trim();
 
-        const decoded = tokenizer.batch_decode(outputs, {
-            skip_special_tokens: true,
-        });
-
-        const text = decoded[0].trim();
         console.log(`Generated: "${text}"`);
 
         if (text.length > 0) {
