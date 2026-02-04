@@ -161,6 +161,14 @@ chrome.runtime.onMessage.addListener((message) => {
             bar.style.width = '100%';
             text.innerText = 'Error: ' + message.data.error;
         }
+    } else if (message.type === 'CACHED_MODELS_LIST') {
+        const list = document.getElementById('modelsList');
+        if (message.models && message.models.length > 0) {
+            const cleanNames = message.models.map(m => m.replace('transformers-cache-', ''));
+            list.innerHTML = '<strong>Installed:</strong><br>' + cleanNames.join('<br>');
+        } else {
+            list.innerText = 'No models found in cache.';
+        }
     }
 });
 
@@ -168,4 +176,9 @@ document.getElementById('btnClearCache').addEventListener('click', () => {
     if (confirm('Are you sure you want to delete all downloaded models?')) {
         chrome.runtime.sendMessage({ target: 'offscreen', type: 'CLEAR_CACHE' });
     }
+});
+
+document.getElementById('btnListModels').addEventListener('click', () => {
+    document.getElementById('modelsList').innerText = 'Loading...';
+    chrome.runtime.sendMessage({ target: 'offscreen', type: 'GET_CACHED_MODELS' });
 });

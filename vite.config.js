@@ -8,33 +8,29 @@ export default defineConfig({
       targets: [
         {
           src: 'node_modules/@huggingface/transformers/dist/*.wasm',
-          dest: 'assets/wasm',
+          dest: 'assets',
         },
         {
           src: 'node_modules/@huggingface/transformers/dist/*.mjs',
-          dest: 'assets/wasm',
+          dest: 'assets',
         },
         // VAD-WEB Assets
         {
           src: 'node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js',
-          dest: './',
+          dest: 'assets',
         },
         {
           src: 'node_modules/@ricky0123/vad-web/dist/*.onnx',
-          dest: './',
+          dest: 'assets',
         },
         // ONNX Runtime Assets 
         {
           src: 'node_modules/onnxruntime-web/dist/*.wasm',
-          dest: 'assets/wasm',
-        },
-        {
-          src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs',
-          dest: 'assets/wasm',
+          dest: 'assets',
         },
         {
           src: 'node_modules/onnxruntime-web/dist/*.mjs',
-          dest: 'assets/wasm',
+          dest: 'assets',
         },
       ],
     }),

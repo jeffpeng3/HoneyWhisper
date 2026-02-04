@@ -11,7 +11,7 @@ console.log("HoneyWhisper Offscreen Script Loaded");
 // Configure local environment for Extensions
 env.allowLocalModels = false;
 env.useBrowserCache = true;
-env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/wasm/');
+env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/');
 env.backends.onnx.logLevel = 'error';
 
 const MAX_NEW_TOKENS = 64;
@@ -170,8 +170,8 @@ async function startRecording(streamId) {
 
         vadInstance = await MicVAD.new({
             getStream: () => stream,
-            baseAssetPath: chrome.runtime.getURL('/'),
-            onnxWASMBasePath: chrome.runtime.getURL('assets/wasm/'),
+            baseAssetPath: chrome.runtime.getURL('assets/'),
+            onnxWASMBasePath: chrome.runtime.getURL('assets/'),
             positiveSpeechThreshold: 0.8,
             negativeSpeechThreshold: 0.45,
             redemptionMs: 50,
@@ -250,6 +250,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     console.log("Caches cleared:", names);
                 } catch (err) {
                     console.error("Failed to clear cache:", err);
+                }
+            } else if (message.type === 'GET_CACHED_MODELS') {
+                try {
+                    const keys = await caches.keys();
+                    // Filter for transformers cache
+                    const models = keys.filter(k => k.startsWith('transformers-cache-'));
+                    chrome.runtime.sendMessage({
+                        target: 'popup',
+                        type: 'CACHED_MODELS_LIST',
+                        models: models
+                    });
+                } catch (err) {
+                    console.error("Failed to get cached models:", err);
                 }
             }
         }

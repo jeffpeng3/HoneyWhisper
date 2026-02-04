@@ -32,7 +32,7 @@
             "resources": [
                 "assets/offscreen.js",
                 "assets/content.js",
-                "assets/wasm/*"
+                "assets/*"
             ],
             "matches": [
                 "<all_urls>"

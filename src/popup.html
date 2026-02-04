@@ -56,7 +56,7 @@
       <option value="onnx-community/whisper-base">Base (Balanced)</option>
       <option value="onnx-community/whisper-small">Small (High Quality, ~2GB VRAM)</option>
       <option value="onnx-community/distil-small.en">Distil-Small English (Fast & Accurate)</option>
-      <option value="onnx-community/whisper-medium">Medium (Very High Quality, ~5GB VRAM)</option>
+      <option value="onnx-community/whisper-medium-ONNX">Medium (Very High Quality, ~5GB VRAM)</option>
       <option value="onnx-community/whisper-large-v3-turbo">Large v3 Turbo (Best, ~6GB VRAM)</option>
     </select>
 
@@ -87,6 +87,12 @@
               <button id="btnClearCache" style="width:100%; padding:8px; background:#fca5a5; color:#7f1d1d; border:none; border-radius:4px; font-size:0.9em; cursor:pointer;">
                   Clear All Downloaded Models
               </button>
+              
+              <button id="btnListModels" style="width:100%; margin-top:8px; padding:8px; background:#e5e7eb; color:#374151; border:none; border-radius:4px; font-size:0.9em; cursor:pointer;">
+                  Show Installed Models
+              </button>
+              <div id="modelsList" style="margin-top:8px; font-size:0.8em; color:#555; word-break:break-all;"></div>
+
               <p class="note" style="margin-top:4px;">This will free up disk space. You will need to re-download models next time.</p>
           </div>
       </details>
