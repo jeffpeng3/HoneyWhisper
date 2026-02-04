@@ -3,7 +3,7 @@
 **HoneyWhisper** 是一款隱私優先、採用 **WebGPU** 技術的即時語音轉字幕 Chrome 擴充功能。
 它完全在您的瀏覽器本機執行 OpenAI 的 Whisper 模型——無需 API Key、無需伺服器費用，您的語音資料絕不會離開您的裝置。
 
-![HoneyWhisper Screenshot](https://via.placeholder.com/1280x800?text=HoneyWhisper+Rebranding+Coming+Soon)
+![HoneyWhisper Screenshot](./docs/screenshot.png)
 
 ## ✨ 特色功能
 
@@ -18,8 +18,8 @@
 
 ## 🚀 安裝說明
 
-### 方法 1：載入壓縮檔 (如果有 release 包)
-1.  下載最新的 `.zip` 發布檔。
+### 方法 1：載入壓縮檔
+1.  前往 [Release 頁面](https://github.com/jeffpeng3/HoneyWhisper/releases/latest) 下載最新的 `.zip` 發布檔。
 2.  解壓縮檔案。
 3.  在瀏覽器網址列輸入 `chrome://extensions`。
 4.  開啟右上角的 **開發者模式 (Developer mode)**。
@@ -30,7 +30,7 @@
 
 1.  Clone 專案：
     ```bash
-    git clone https://github.com/yourusername/honey-whisper.git
+    git clone https://github.com/jeffpeng3/HoneyWhisper.git
     cd honey-whisper
     ```
 2.  安裝依賴套件：
