@@ -20,7 +20,8 @@ function createOverlay() {
     div.style.cursor = 'move'; // Indicate draggable
     div.style.userSelect = 'none'; // Prevent text selection while dragging
     div.style.textAlign = 'center';
-    div.style.maxWidth = '80%';
+    div.style.width = 'max-content'; // Force width to fit content
+    div.style.maxWidth = '90vw';     // Limit to 90% of screen width
     div.style.fontFamily = 'sans-serif';
     div.style.textShadow = '0px 0px 4px black';
     div.style.transition = 'opacity 0.3s';

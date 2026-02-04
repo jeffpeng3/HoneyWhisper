@@ -58,6 +58,15 @@
       <option value="onnx-community/distil-small.en">Distil-Small English (Fast & Accurate)</option>
       <option value="onnx-community/whisper-medium-ONNX">Medium (Very High Quality, ~5GB VRAM)</option>
       <option value="onnx-community/whisper-large-v3-turbo">Large v3 Turbo (Best, ~6GB VRAM)</option>
+      <option value="custom">Custom ID (HuggingFace)...</option>
+    </select>
+    <input type="text" id="customModelId" placeholder="e.g. onnx-community/whisper-tiny" style="display:none; width:100%; margin-top:5px; padding:5px; border:1px solid #ccc; border-radius:4px;">
+
+    <label for="quantization" style="margin-top: 10px; display: block;">Quantization (Weights)</label>
+    <select id="quantization">
+      <option value="q4" selected>Q4 (WebGPU Optimized - Default)</option>
+      <option value="int8">Int8 (Standard ONNX)</option>
+      <option value="fp32">FP32 (High Precision - Large)</option>
     </select>
 
     <label for="language">Language</label>

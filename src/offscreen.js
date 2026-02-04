@@ -1,7 +1,7 @@
 import {
     AutoTokenizer,
     AutoProcessor,
-    WhisperForConditionalGeneration,
+    AutoModelForSpeechSeq2Seq,
     env
 } from "@huggingface/transformers";
 import { MicVAD } from "@ricky0123/vad-web";
@@ -19,6 +19,7 @@ const MAX_NEW_TOKENS = 64;
 // Singleton Whisper Model Class
 class AutomaticSpeechRecognitionPipeline {
     static model_id = 'onnx-community/whisper-tiny';
+    static quantization = 'q4';
     static tokenizer = null;
     static processor = null;
     static model = null;
@@ -31,13 +32,10 @@ class AutomaticSpeechRecognitionPipeline {
             progress_callback,
         });
 
-        this.model ??= WhisperForConditionalGeneration.from_pretrained(
+        this.model ??= AutoModelForSpeechSeq2Seq.from_pretrained(
             this.model_id,
             {
-                dtype: {
-                    encoder_model: "q4",
-                    decoder_model_merged: "q4",
-                },
+                dtype: this.quantization,
                 device: "webgpu",
                 progress_callback,
             },
@@ -46,8 +44,9 @@ class AutomaticSpeechRecognitionPipeline {
         return Promise.all([this.tokenizer, this.processor, this.model]);
     }
 
-    static async reset(new_model_id) {
+    static async reset(new_model_id, new_quantization = 'q4') {
         this.model_id = new_model_id;
+        this.quantization = new_quantization;
         this.tokenizer = null;
         this.processor = null;
         if (this.model) {
@@ -192,6 +191,7 @@ async function startRecording(streamId) {
 
         vadInstance.start();
         console.log("VAD Started");
+        chrome.runtime.sendMessage({ target: 'popup', type: 'RECORDING_STARTED' }).catch(() => { });
 
     } catch (err) {
         console.error("Error starting recording:", err);
@@ -232,8 +232,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (message.language) {
                     currentLanguage = message.language;
                 }
-                if (message.model_id && message.model_id !== AutomaticSpeechRecognitionPipeline.model_id) {
-                    await AutomaticSpeechRecognitionPipeline.reset(message.model_id);
+                const newModel = message.model_id;
+                const newQuant = message.quantization || 'q4';
+
+                if (newModel && (newModel !== AutomaticSpeechRecognitionPipeline.model_id || newQuant !== AutomaticSpeechRecognitionPipeline.quantization)) {
+                    await AutomaticSpeechRecognitionPipeline.reset(newModel, newQuant);
                     await loadModels();
                 }
                 startRecording(message.data);

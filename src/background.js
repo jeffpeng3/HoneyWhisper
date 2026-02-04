@@ -35,9 +35,10 @@ async function startCapture(tabId) {
     currentTabId = tabId;
 
     // Get settings
-    const { language, model_id } = await chrome.storage.sync.get({
+    const { language, model_id, quantization } = await chrome.storage.sync.get({
         language: 'en',
-        model_id: 'onnx-community/whisper-tiny'
+        model_id: 'onnx-community/whisper-tiny',
+        quantization: 'q4'
     });
 
     // Send streamId to offscreen document
@@ -46,7 +47,8 @@ async function startCapture(tabId) {
         target: 'offscreen',
         data: streamId,
         language,
-        model_id
+        model_id,
+        quantization
     });
 
     isRecording = true;
