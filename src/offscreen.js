@@ -12,6 +12,7 @@ env.allowLocalModels = false; // We are fetching from cache/internet, but not lo
 env.useBrowserCache = true;
 // Point to local WASM files copied by Vite
 env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/wasm/');
+env.backends.onnx.logLevel = 'error'; // Suppress warnings
 // We also need to configure the proxy/js path if it tries to load that
 // For transformers.js v3, it dynamically imports. We need to trick it or ensure `wasmPaths` handles the JS too if it looks for it there.
 
@@ -103,7 +104,7 @@ async function generate(audio) {
 
 // Audio Processing State
 // audioContext is already declared above
-let scriptProcessor = null;
+let audioWorkletNode = null;
 let audioBuffer = []; // Float32 Array of samples at 16k
 const BUFFER_SIZE = 4096;
 
@@ -143,29 +144,27 @@ async function startRecording(streamId) {
         video: false
     });
 
-    audioContext = new AudioContext(); // Browser default rate (usually 44100 or 48000)
+    audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(stream);
 
-    // Use ScriptProcessor (bufferSize, inputChannels, outputChannels)
-    // 4096 samples @ 48kHz is ~85ms
-    scriptProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
+    // Use AudioWorkletNode
+    try {
+        await audioContext.audioWorklet.addModule(chrome.runtime.getURL('audio-processor.js'));
+        audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
 
-    source.connect(scriptProcessor);
-    source.connect(audioContext.destination); // Connect to destination to hear the audio
-    scriptProcessor.connect(audioContext.destination); // Connect to destination to keep it alive (and maybe hear it?)
-    // If we connect to destination in offscreen, it might play nowhere or play in extension background.
-    // Usually we want to Avoid hearing it double if we are just transcribing.
-    // But ScriptProcessor stops if not connected to destination in some browsers.
-    // Let's connect it. If it echoes, we will create a GainNode(0).
-    const gainZero = audioContext.createGain();
-    gainZero.gain.value = 0;
-    scriptProcessor.connect(gainZero);
-    gainZero.connect(audioContext.destination);
+        source.connect(audioWorkletNode);
+        audioWorkletNode.connect(audioContext.destination); // Keep pipeline alive
 
-    scriptProcessor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        resampleAndPush(inputData, audioContext.sampleRate);
-    };
+        // Playback to user
+        source.connect(audioContext.destination);
+
+        audioWorkletNode.port.onmessage = (e) => {
+            // e.data is Float32Array
+            resampleAndPush(e.data, audioContext.sampleRate);
+        };
+    } catch (err) {
+        console.error('Failed to load AudioWorklet:', err);
+    }
 
     // Start processing loop
     processing = false;
