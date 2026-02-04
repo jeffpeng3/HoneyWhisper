@@ -25,7 +25,7 @@ function createOverlay() {
     div.style.textShadow = '0px 0px 4px black';
     div.style.transition = 'opacity 0.3s';
 
-    div.innerHTML = '<div id="whisper-history" style="color: #bbb; font-size: 0.85em; margin-bottom: 4px;"></div><div id="whisper-current">Initializing WebGPU Whisper...</div>';
+    div.innerHTML = '<div id="whisper-history" style="color: #bbb; font-size: 0.85em; margin-bottom: 4px;"></div><div id="whisper-current">Initializing HoneyWhisper...</div>';
 
     // Drag Logic
     let isMouseDown = false;

@@ -1,5 +1,5 @@
 {
-  "name": "webgpu-whisper-extension",
+  "name": "honey-whisper",
   "version": "1.0.0",
   "type": "module",
   "scripts": {

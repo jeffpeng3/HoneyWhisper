@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "WebGPU Real-time Captions",
+    "name": "HoneyWhisper",
     "version": "1.0",
-    "description": "Real-time speech-to-text using WebGPU Whisper",
+    "description": "Real-time speech-to-text using HoneyWhisper",
     "permissions": [
         "tabCapture",
         "offscreen",

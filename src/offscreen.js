@@ -6,7 +6,7 @@ import {
 } from "@huggingface/transformers";
 import { MicVAD } from "@ricky0123/vad-web";
 
-console.log("Offscreen Script Loaded - Version 6.0 (Cleaned)");
+console.log("HoneyWhisper Offscreen Script Loaded");
 
 // Configure local environment for Extensions
 env.allowLocalModels = false;
