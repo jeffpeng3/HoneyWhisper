@@ -1,9 +1,12 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { crx } from '@crxjs/vite-plugin';
+import manifest from './manifest.config.js';
 
 export default defineConfig({
   plugins: [
+    crx({ manifest }),
     viteStaticCopy({
       targets: [
         {
@@ -36,20 +39,14 @@ export default defineConfig({
     }),
   ],
   build: {
-    rollupOptions: {
-      input: {
-        offscreen: resolve(__dirname, 'src/offscreen.html'),
-        background: resolve(__dirname, 'src/background.js'),
-        content: resolve(__dirname, 'src/content.js'),
-        popup: resolve(__dirname, 'src/popup.html'),
-      },
-      output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name].[ext]',
-      },
-    },
     target: 'esnext',
+  },
+  server: {
+    cors: {
+      origin: [
+        /chrome-extension:\/\//,
+      ],
+    },
   },
   worker: {
     format: 'es',

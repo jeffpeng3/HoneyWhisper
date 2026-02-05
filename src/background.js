@@ -96,7 +96,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // Inject content script
             chrome.scripting.executeScript({
                 target: { tabId: message.tabId },
-                files: ['assets/content.js']
+                files: ['src/content.js']
             });
 
             await startCapture(message.tabId);
