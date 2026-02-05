@@ -7,7 +7,47 @@ let autoCloseOnReady = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-    // Restore Settings
+    // 1. Fetch Model List
+    const modelSelect = document.getElementById('modelId');
+    const customOption = modelSelect.querySelector('option[value="custom"]');
+
+    try {
+        // GitHub Raw URL (Main branch) - User requested this path logic
+        let models = [];
+        try {
+            const res = await fetch('https://raw.githubusercontent.com/jeffpeng3/HoneyWhisper/main/public/models.json');
+            if (res.ok) {
+                models = await res.json();
+            } else {
+                throw new Error('Network response not ok');
+            }
+        } catch (err) {
+            console.warn('Failed to fetch from GitHub, falling back to local models.json', err);
+            // Fallback to local
+            const res = await fetch(chrome.runtime.getURL('models.json'));
+            models = await res.json();
+        }
+
+        // Clear "Loading..."
+        const loading = modelSelect.querySelector('option[disabled]');
+        if (loading) loading.remove();
+
+        // Populate
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name;
+            modelSelect.insertBefore(opt, customOption);
+        });
+
+    } catch (e) {
+        console.error('Critical Error loading models:', e);
+        const opt = document.createElement('option');
+        opt.value = 'onnx-community/whisper-tiny';
+        opt.textContent = 'Tiny (Fallback)';
+        modelSelect.insertBefore(opt, customOption);
+    }
+
     // Restore Settings
     chrome.storage.sync.get({ language: 'en', fontSize: '24', model_id: 'onnx-community/whisper-tiny', historyLines: 1, quantization: 'q4' }, (items) => {
         document.getElementById('language').value = items.language;

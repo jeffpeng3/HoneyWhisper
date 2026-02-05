@@ -1,0 +1,26 @@
+[
+    {
+        "id": "onnx-community/whisper-tiny",
+        "name": "Tiny (Fastest, Low VRAM)"
+    },
+    {
+        "id": "onnx-community/whisper-base",
+        "name": "Base (Balanced)"
+    },
+    {
+        "id": "onnx-community/whisper-small",
+        "name": "Small (High Quality, ~2GB VRAM)"
+    },
+    {
+        "id": "onnx-community/distil-small.en",
+        "name": "Distil-Small English (Fast & Accurate)"
+    },
+    {
+        "id": "onnx-community/whisper-medium-ONNX",
+        "name": "Medium (Very High Quality, ~5GB VRAM)"
+    },
+    {
+        "id": "onnx-community/whisper-large-v3-turbo",
+        "name": "Large v3 Turbo (Best, ~6GB VRAM)"
+    }
+]
