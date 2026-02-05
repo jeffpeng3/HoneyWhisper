@@ -1,12 +1,16 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { crx } from '@crxjs/vite-plugin';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import manifest from './manifest.config.js';
+import { name, version } from './package.json'
+import zip from 'vite-plugin-zip-pack'
 
 export default defineConfig({
   plugins: [
+    svelte(),
     crx({ manifest }),
+    zip({ outDir: 'release', outFileName: `crx-${name}-${version}.zip` }),
     viteStaticCopy({
       targets: [
         {

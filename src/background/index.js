@@ -91,12 +91,12 @@ async function stopCapture() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const handleMessage = async () => {
         if (message.type === 'REQUEST_START') {
-            await setupOffscreenDocument('src/offscreen.html');
+            await setupOffscreenDocument('src/offscreen/index.html');
 
             // Inject content script
             chrome.scripting.executeScript({
                 target: { tabId: message.tabId },
-                files: ['src/content.js']
+                files: ['src/content/index.js']
             });
 
             await startCapture(message.tabId);
