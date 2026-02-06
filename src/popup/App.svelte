@@ -4,15 +4,7 @@
   // State
   let isRecording = false;
   let autoCloseOnReady = false;
-  let models = [];
-  let modelSelect = '';
-  let customModelId = '';
-  let quantization = 'q4';
-  let language = 'en';
-  let historyLines = 1;
-  let fontSize = 24;
-  let fontSizePreviewText = 'Abc';
-
+  
   // Active Tab Info
   let showActiveTabInfo = false;
   let activeTabTitle = 'Tab Name';
@@ -25,52 +17,8 @@
   let progressStatus = 'initiate'; // initiate, progress, done, error
   let progressError = '';
 
-  // Debug
-  let installedModels = [];
-  let showInstalledModels = false;
-
   onMount(async () => {
-    // 1. Fetch Model List
-    try {
-      let res;
-      try {
-        res = await fetch('https://raw.githubusercontent.com/jeffpeng3/HoneyWhisper/master/public/models.json');
-        if (!res.ok) throw new Error('Network response not ok');
-      } catch (err) {
-        console.warn('Failed to fetch from GitHub, falling back to local models.json', err);
-        res = await fetch(chrome.runtime.getURL('models.json'));
-      }
-      models = await res.json();
-    } catch (e) {
-      console.error('Critical Error loading models:', e);
-      // Fallback if absolutely everything fails
-      models = [{ id: 'onnx-community/whisper-tiny', name: 'Tiny (Fallback)' }];
-    }
-
-    // 2. Restore Settings
-    chrome.storage.sync.get({ 
-      language: 'en', 
-      fontSize: '24', 
-      model_id: 'onnx-community/whisper-tiny', 
-      historyLines: 1, 
-      quantization: 'q4' 
-    }, (items) => {
-      language = items.language;
-      fontSize = parseInt(items.fontSize);
-      historyLines = parseInt(items.historyLines);
-      quantization = items.quantization;
-
-      // Check if saved model_id is in the list
-      const knownModelIds = models.map(m => m.id);
-      if (items.model_id && !knownModelIds.includes(items.model_id)) {
-        modelSelect = 'custom';
-        customModelId = items.model_id;
-      } else {
-        modelSelect = items.model_id || (models[0] ? models[0].id : '');
-      }
-    });
-
-    // 3. Check recording state
+    // 1. Check recording state
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_STATE' });
       if (response && response.isRecording) {
@@ -80,7 +28,7 @@
       // Background might not be ready
     }
 
-    // 4. Message Listeners
+    // 2. Message Listeners
     chrome.runtime.onMessage.addListener(handleMessage);
   });
 
@@ -111,43 +59,12 @@
       }
     } else if (message.type === 'RECORDING_STARTED') {
       progressText = 'Recording Active!';
+      // If we started from this popup, auto-close might be desired, 
+      // but usually users want to see it started.
       if (autoCloseOnReady) {
         setTimeout(() => { window.close(); }, 800);
       }
     }
-  }
-
-  // Reactive Settings Update
-  $: updateSettings(language, fontSize, modelSelect, customModelId, historyLines, quantization);
-
-  function updateSettings() {
-    // Determine actual model ID
-    let finalModelId = modelSelect === 'custom' ? customModelId : modelSelect;
-    
-    // Guard against initial run before settings are loaded
-    if (!finalModelId) return;
-
-    chrome.storage.sync.set({ 
-      language, 
-      fontSize: String(fontSize), 
-      model_id: finalModelId, 
-      historyLines, 
-      quantization 
-    });
-
-    // Notify active tabs
-    chrome.runtime.sendMessage({
-      target: 'content',
-      type: 'UPDATE_SETTINGS',
-      settings: { fontSize: String(fontSize), historyLines }
-    }).catch(() => {}); // Content script might not be there
-
-    // Notify offscreen
-    chrome.runtime.sendMessage({
-      target: 'offscreen',
-      type: 'UPDATE_SETTINGS',
-      settings: { language, model_id: finalModelId, quantization }
-    }).catch(() => {});
   }
 
   async function toggleRecording() {
@@ -193,53 +110,13 @@
           }
       }
   }
-
-  async function clearCache() {
-    if (confirm('Are you sure you want to delete all downloaded models?')) {
-        try {
-            const keys = await caches.keys();
-            await Promise.all(keys.map(key => caches.delete(key)));
-            alert(`Cleared ${keys.length} cache(s).`);
-            installedModels = []; // Clear UI
-        } catch (err) {
-            alert('Error clearing cache: ' + err.message);
-        }
-    }
-  }
-
-  async function listModels() {
-    installedModels = []; // Reset
-    try {
-        if (await caches.has('transformers-cache')) {
-            const cache = await caches.open('transformers-cache');
-            const requests = await cache.keys();
-            const modelsSet = new Set();
-
-            requests.forEach(req => {
-                const match = req.url.match(/huggingface\.co\/([^/]+\/[^/]+)\//);
-                if (match && match[1]) {
-                    modelsSet.add(match[1]);
-                }
-            });
-
-            if (modelsSet.size > 0) {
-                installedModels = Array.from(modelsSet);
-            } else {
-                installedModels = ['Cache found but no recognizable models identified.'];
-            }
-        } else {
-            const keys = await caches.keys();
-            if(keys.length > 0) {
-              installedModels = ['No standard cache found. Available caches:', ...keys];
-            } else {
-              installedModels = ['No caches found.'];
-            }
-        }
-        showInstalledModels = true;
-    } catch (err) {
-        installedModels = ['Error parsing cache: ' + err.message];
-        showInstalledModels = true;
-    }
+  
+  function openOptions() {
+      if (chrome.runtime.openOptionsPage) {
+          chrome.runtime.openOptionsPage();
+      } else {
+          window.open(chrome.runtime.getURL('src/options/index.html'));
+      }
   }
 </script>
 
@@ -274,69 +151,9 @@
   <button class="btn-main {isRecording ? 'btn-stop' : 'btn-start'}" on:click={toggleRecording}>
     <span>{isRecording ? 'Stop Captioning' : 'Start Captioning'}</span>
   </button>
-
-  <div class="settings">
-    <label for="modelId">Model (onnx-community)</label>
-    <select id="modelId" bind:value={modelSelect}>
-      {#if models.length === 0}
-        <option value="" disabled selected>Loading models...</option>
-      {/if}
-      {#each models as model}
-        <option value={model.id}>{model.name}</option>
-      {/each}
-      <option value="custom">Custom ID (HuggingFace)...</option>
-    </select>
-
-    {#if modelSelect === 'custom'}
-      <input type="text" placeholder="e.g. onnx-community/whisper-tiny" class="custom-input" bind:value={customModelId}>
-    {/if}
-
-    <label for="quantization" class="mt-2">Quantization (Weights)</label>
-    <select id="quantization" bind:value={quantization}>
-      <option value="q4">Q4 (WebGPU Optimized - Default)</option>
-      <option value="int8">Int8 (Standard ONNX)</option>
-      <option value="fp32">FP32 (High Precision - Large)</option>
-    </select>
-
-    <label for="language">Language</label>
-    <select id="language" bind:value={language}>
-      <option value="en">English</option>
-      <option value="zh">Chinese (中文)</option>
-      <option value="ja">Japanese (日本語)</option>
-      <option value="es">Spanish</option>
-      <option value="fr">French</option>
-      <option value="de">German</option>
-      <option value="ko">Korean</option>
-      <option value="auto">Auto Detect</option>
-    </select>
-
-    <label for="historyLines">History Lines (0-5)</label>
-    <input type="number" id="historyLines" min="0" max="5" bind:value={historyLines}>
-
-    <label for="fontSize">Subtitle Size</label>
-    <input type="range" id="fontSize" min="16" max="48" bind:value={fontSize}>
-    <div class="note">Preview: <span class="preview-badge" style="font-size: {fontSize}px">Abc</span></div>
-  </div>
-
-  <div class="debug-section">
-    <details>
-      <summary>Debug Tools</summary>
-      <div class="debug-content">
-        <button class="btn-clear" on:click={clearCache}>Clear All Downloaded Models</button>
-        <button class="btn-list" on:click={listModels}>Show Installed Models</button>
-        
-        {#if showInstalledModels}
-          <div class="models-list">
-             <strong>Result:</strong><br>
-             {#each installedModels as m}
-               {m}<br>
-             {/each}
-          </div>
-        {/if}
-
-        <p class="note mt-1">This will free up disk space. You will need to re-download models next time.</p>
-      </div>
-    </details>
+  
+  <div class="footer-links">
+      <button class="btn-link-small" on:click={openOptions}>⚙️ Settings</button>
   </div>
 </main>
 
@@ -344,7 +161,7 @@
   :global(body) {
     font-family: system-ui, sans-serif;
     padding: 16px;
-    width: 320px;
+    width: 280px; /* Slightly narrower since we have less content */
     margin: 0;
   }
 
@@ -369,6 +186,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
+    margin-bottom: 12px;
   }
 
   .btn-start { background: #3b82f6; color: white; }
@@ -386,47 +204,6 @@
   }
 
   .status-recording { background: #fecaca; color: #dc2626; }
-
-  .settings {
-    margin-top: 24px;
-    border-top: 1px solid #eee;
-    padding-top: 16px;
-  }
-
-  label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 0.9em;
-    font-weight: 500;
-    color: #374151;
-  }
-
-  select, input[type="range"], input[type="number"], input[type="text"] {
-    width: 100%;
-    padding: 6px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    margin-bottom: 12px;
-    box-sizing: border-box;
-  }
-  
-  .custom-input {
-    margin-top: -6px; /* Pull closer to dropdown */
-  }
-
-  .note {
-    font-size: 0.8em;
-    color: #6b7280;
-    margin-top: -8px;
-    margin-bottom: 12px;
-  }
-
-  .preview-badge {
-    background: #000;
-    color: #fff;
-    padding: 2px 4px;
-    border-radius: 4px;
-  }
 
   /* Active Tab Info */
   .active-tab-info {
@@ -458,15 +235,23 @@
   .progress-bar-bg { background: #e5e7eb; height: 6px; border-radius: 3px; overflow: hidden; }
   .progress-bar-fill { height: 100%; transition: width 0.2s; }
 
-  /* Debug Section */
-  .debug-section { margin-top: 16px; border-top: 1px solid #eee; padding-top: 12px; }
-  details summary { font-size: 0.85em; color: #777; cursor: pointer; }
-  .debug-content { margin-top: 8px; }
-  
-  .btn-clear { width: 100%; padding: 8px; background: #fca5a5; color: #7f1d1d; border: none; border-radius: 4px; font-size: 0.9em; cursor: pointer; }
-  .btn-list { width: 100%; margin-top: 8px; padding: 8px; background: #e5e7eb; color: #374151; border: none; border-radius: 4px; font-size: 0.9em; cursor: pointer; }
-
-  .models-list { margin-top: 8px; font-size: 0.8em; color: #555; word-break: break-all; }
-  .mt-1 { margin-top: 4px; }
-  .mt-2 { margin-top: 10px; }
+  .footer-links {
+      display: flex;
+      justify-content: center;
+      margin-top: 8px;
+  }
+  .btn-link-small {
+      background: none;
+      border: none;
+      color: #6b7280;
+      font-size: 0.9em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+  }
+  .btn-link-small:hover {
+      color: #374151;
+      text-decoration: underline;
+  }
 </style>
