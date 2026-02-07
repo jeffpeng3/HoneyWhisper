@@ -24,3 +24,6 @@ export class GoogleTranslator extends BaseTranslator {
         }
     }
 }
+
+// Register implementations
+BaseTranslator.register('google', GoogleTranslator);

@@ -3,6 +3,7 @@ import { LocalASR } from "./pipeline/ASR/LocalASR.js";
 import { RemoteASR } from "./pipeline/ASR/RemoteASR.js";
 import { GoogleTranslator } from "./pipeline/Translation/GoogleTranslator.js";
 import { BaseTranslator } from "./pipeline/Translation/BaseTranslator.js";
+import { BaseASR } from "./pipeline/ASR/BaseASR.js";
 
 console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 
@@ -137,13 +138,14 @@ async function initPipeline(config) {
         desiredType = 'wasm';
     }
 
-    if (!asrService || (desiredType === 'remote' && asrService instanceof LocalASR) || ((desiredType === 'webgpu' || desiredType === 'wasm') && asrService instanceof RemoteASR)) {
+    const TargetClass = BaseASR.get(desiredType);
+    if (!TargetClass) {
+        throw new Error(`ASR Backend '${desiredType}' not found in registry`);
+    }
+
+    if (!asrService || !(asrService instanceof TargetClass)) {
         await releaseASR();
-        if (desiredType === 'remote') {
-            asrService = new RemoteASR();
-        } else {
-            asrService = new LocalASR();
-        }
+        asrService = BaseASR.create(desiredType);
     }
 
     // Load Model
@@ -170,7 +172,7 @@ async function initPipeline(config) {
 
     // 2. Initialize Translator
     if (!translatorService) {
-        translatorService = new GoogleTranslator();
+        translatorService = BaseTranslator.create('google');
     }
 }
 

@@ -70,3 +70,7 @@ export class LocalASR extends BaseASR {
         }
     }
 }
+
+// Register implementations
+BaseASR.register('webgpu', LocalASR);
+BaseASR.register('wasm', LocalASR);

@@ -45,3 +45,6 @@ export class RemoteASR extends BaseASR {
         }
     }
 }
+
+// Register implementations
+BaseASR.register('remote', RemoteASR);
