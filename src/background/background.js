@@ -27,6 +27,13 @@ async function setupOffscreenDocument(path) {
     }
 }
 
+function setIcon(active) {
+    const path = active ? 'icons/icon.png' : 'icons/icon_idle.png';
+    chrome.action.setIcon({ path: path }).catch(() => {
+        // Ignore errors if icon setting fails
+    });
+}
+
 async function startCapture(tabId, profile = null) {
     const streamId = await chrome.tabCapture.getMediaStreamId({
         targetTabId: tabId,
@@ -74,6 +81,7 @@ async function startCapture(tabId, profile = null) {
     });
 
     isRecording = true;
+    setIcon(true);
 }
 
 async function stopCapture() {
@@ -87,6 +95,7 @@ async function stopCapture() {
     }
     isRecording = false;
     currentTabId = null;
+    setIcon(false);
 
     // Close offscreen to release WebGPU resources
     try {

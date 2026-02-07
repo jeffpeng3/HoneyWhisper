@@ -29,9 +29,7 @@ export default defineManifest(async (env) => ({
     action: {
         default_popup: 'src/popup/popup.html',
         default_icon: {
-            16: 'icons/icon16.png',
-            48: 'icons/icon48.png',
-            128: 'icons/icon128.png',
+            128: 'icons/icon_idle.png',
         },
     },
     options_ui: {
@@ -39,9 +37,7 @@ export default defineManifest(async (env) => ({
         open_in_tab: true,
     },
     icons: {
-        16: 'icons/icon16.png',
-        48: 'icons/icon48.png',
-        128: 'icons/icon128.png',
+        128: 'icons/icon_idle.png',
     },
     web_accessible_resources: [
         {
