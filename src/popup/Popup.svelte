@@ -4,12 +4,14 @@
 
   // State
   let isRecording = false;
+  let isLoading = false;
   let autoCloseOnReady = false;
 
   // Active Tab Info
   let showActiveTabInfo = false;
   let activeTabTitle = "Tab Name";
   let activeTabId = null;
+  let pendingTabId = null;
 
   // Progress Bar
   let showProgress = false;
@@ -78,9 +80,14 @@
         progressText = "Initializing...";
       } else if (message.data.status === "error") {
         progressText = "Error: " + message.data.error;
+        isLoading = false; // Reset loading on error
       }
     } else if (message.type === "RECORDING_STARTED") {
+      isLoading = false;
       progressText = "Recording Active!";
+      // Confirm recording state with pending tab ID if available
+      setRecordingState(true, pendingTabId);
+
       if (autoCloseOnReady) {
         setTimeout(() => {
           window.close();
@@ -114,6 +121,9 @@
       if (tab) {
         console.log("Found active tab:", tab.id);
 
+        isLoading = true; // Set loading state
+        pendingTabId = tab.id; // Store tab ID for later
+
         // We pass the profile configuration directly in the start request
         // This overrides whatever the background might load from default storage
         // Actually, background loads from storage too.
@@ -126,7 +136,8 @@
           profile: profile, // Pass full profile
         });
 
-        setRecordingState(true);
+        // Don't set recording state immediately
+        // setRecordingState(true);
         autoCloseOnReady = true;
       } else {
         console.error("No active tab found!");
@@ -137,6 +148,7 @@
       // Stop
       chrome.runtime.sendMessage({ type: "REQUEST_STOP" });
       setRecordingState(false);
+      isLoading = false;
     }
   }
 
@@ -184,7 +196,7 @@
   <h1>
     HoneyWhisper
     <span class="status-badge {isRecording ? 'status-recording' : ''}">
-      {isRecording ? "Recording" : "Ready"}
+      {isLoading ? "Initializing..." : isRecording ? "Recording" : "Ready"}
     </span>
   </h1>
 
@@ -222,13 +234,17 @@
           id="profileSelect"
           bind:value={selectedProfileId}
           on:change={onProfileChange}
+          disabled={isLoading}
         >
           {#each profiles as profile}
             <option value={profile.id}>{profile.name}</option>
           {/each}
         </select>
-        <button class="btn-icon" title="Manage Profiles" on:click={openOptions}
-          >⚙️</button
+        <button
+          class="btn-icon"
+          title="Manage Profiles"
+          on:click={openOptions}
+          disabled={isLoading}>⚙️</button
         >
       </div>
     {/if}
@@ -237,8 +253,15 @@
   <button
     class="btn-main {isRecording ? 'btn-stop' : 'btn-start'}"
     on:click={toggleRecording}
+    disabled={isLoading}
   >
-    <span>{isRecording ? "Stop Captioning" : "Start Captioning"}</span>
+    <span
+      >{isLoading
+        ? "Starting..."
+        : isRecording
+          ? "Stop Captioning"
+          : "Start Captioning"}</span
+    >
   </button>
 </main>
 
