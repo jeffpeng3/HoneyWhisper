@@ -308,13 +308,20 @@
                   ><input
                     type="radio"
                     bind:group={tempProfile.backend}
+                    value="wasm"
+                  /> Local (WASM)</label
+                >
+                <label
+                  ><input
+                    type="radio"
+                    bind:group={tempProfile.backend}
                     value="remote"
                   /> Remote (API)</label
                 >
               </div>
             </div>
 
-            {#if tempProfile.backend === "webgpu"}
+            {#if tempProfile.backend === "webgpu" || tempProfile.backend === "wasm"}
               <div class="form-group">
                 <label>Model ID (HuggingFace)</label>
                 <input
@@ -582,6 +589,10 @@
     background: #dbeafe;
     color: #1e40af;
   }
+  .badge.wasm {
+    background: #e0e7ff;
+    color: #3730a3;
+  }
   .badge.remote {
     background: #fee2e2;
     color: #991b1b;
@@ -631,6 +642,14 @@
     border-radius: 6px;
     font-size: 1rem;
     box-sizing: border-box;
+  }
+
+  .radio-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 16px;
+    font-weight: normal;
   }
 
   .editor-actions {

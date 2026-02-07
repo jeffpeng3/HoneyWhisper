@@ -66,13 +66,11 @@ async function startCapture(tabId, profile = null) {
         });
     }
 
-    // Send streamId to offscreen document
-    // We send 'settings' which offscreen/index.js knows how to parse
     chrome.runtime.sendMessage({
         type: 'START_RECORDING',
         target: 'offscreen',
         data: streamId,
-        settings // Pass the entire settings object
+        settings
     });
 
     isRecording = true;
@@ -117,12 +115,12 @@ async function stopCapture() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const handleMessage = async () => {
         if (message.type === 'REQUEST_START') {
-            await setupOffscreenDocument('src/offscreen/index.html');
+            await setupOffscreenDocument('src/offscreen/offscreen.html');
 
             // Inject content script
             chrome.scripting.executeScript({
                 target: { tabId: message.tabId },
-                files: ['src/content/index.js']
+                files: ['src/content/content.js']
             });
 
             // Pass profile if available

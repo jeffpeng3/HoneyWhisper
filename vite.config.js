@@ -44,7 +44,7 @@ export default defineConfig({
     target: 'esnext',
     rollupOptions: {
       input: {
-        offscreen: 'src/offscreen/index.html',
+        offscreen: 'src/offscreen/offscreen.html',
       }
     },
   },

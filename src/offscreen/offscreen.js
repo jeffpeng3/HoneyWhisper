@@ -1,5 +1,5 @@
 import { MicVAD } from "@ricky0123/vad-web";
-import { WebGPUASR } from "./pipeline/ASR/WebGPUASR.js";
+import { LocalASR } from "./pipeline/ASR/LocalASR.js";
 import { RemoteASR } from "./pipeline/ASR/RemoteASR.js";
 import { GoogleTranslator } from "./pipeline/Translation/GoogleTranslator.js";
 import { BaseTranslator } from "./pipeline/Translation/BaseTranslator.js";
@@ -21,7 +21,7 @@ let translatorService = null;
 // Current Configuration
 let pipelineConfig = {
     asr: {
-        type: 'webgpu', // 'webgpu' or 'remote'
+        type: 'webgpu', // 'webgpu', 'wasm', or 'remote'
         model_id: 'onnx-community/whisper-tiny',
         quantization: 'q4',
         // Remote config
@@ -132,18 +132,24 @@ async function initPipeline(config) {
     if (config.asr.model_id === 'remote' || config.asr.model_id.startsWith('http')) {
         desiredType = 'remote';
     }
+    // If it's explicitly set to wasm, use that
+    if (config.asr.type === 'wasm') {
+        desiredType = 'wasm';
+    }
 
-    if (!asrService || (desiredType === 'remote' && asrService instanceof WebGPUASR) || (desiredType === 'webgpu' && asrService instanceof RemoteASR)) {
+    if (!asrService || (desiredType === 'remote' && asrService instanceof LocalASR) || ((desiredType === 'webgpu' || desiredType === 'wasm') && asrService instanceof RemoteASR)) {
         await releaseASR();
         if (desiredType === 'remote') {
             asrService = new RemoteASR();
         } else {
-            asrService = new WebGPUASR();
+            asrService = new LocalASR();
         }
     }
 
     // Load Model
     reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing Pipeline...' });
+
+    const device = desiredType === 'wasm' ? 'wasm' : 'webgpu';
 
     try {
         await asrService.load({
@@ -151,10 +157,11 @@ async function initPipeline(config) {
             quantization: config.asr.quantization,
             endpoint: config.asr.endpoint,
             apiKey: config.asr.key,
+            device: device,
             progress_callback: (data) => reportProgress(data)
         });
         reportProgress({ status: 'done' });
-        console.log(`ASR Service Loaded: ${desiredType}`);
+        console.log(`ASR Service Loaded: ${desiredType} (Device: ${device})`);
     } catch (err) {
         console.error("ASR Load Error:", err);
         reportProgress({ status: 'error', error: err.message });
@@ -355,13 +362,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                     if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
                     if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
-
-                    // If pipeline is active, maybe we should re-init if backend changed?
-                    // But initPipeline checks if backend changed and seamlessly switches.
-                    // So we might want to trigger a reload if we are not recording? Or only when next recording starts?
-                    // For now, next recording starts will pick up changes. 
-                    // If we are recording, initPipeline is called in startRecording.
-                    // We probably shouldn't hot-swap backend while recording without restart.
                 }
             } else if (message.type === 'CLEAR_CACHE') {
                 try {

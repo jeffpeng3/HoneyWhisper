@@ -9,19 +9,20 @@ env.backends.onnx.logLevel = 'error';
 
 const MAX_NEW_TOKENS = 64;
 
-export class WebGPUASR extends BaseASR {
+export class LocalASR extends BaseASR {
     constructor() {
         super();
         this.transcriber = null;
         this.model_id = null;
         this.quantization = null;
+        this.device = null;
     }
 
     async load(config) {
-        const { model_id, quantization, progress_callback } = config;
+        const { model_id, quantization, progress_callback, device = "webgpu" } = config;
 
         // Check if we need to reload
-        if (this.transcriber && this.model_id === model_id && this.quantization === quantization) {
+        if (this.transcriber && this.model_id === model_id && this.quantization === quantization && this.device === device) {
             return;
         }
 
@@ -31,13 +32,14 @@ export class WebGPUASR extends BaseASR {
 
         this.model_id = model_id;
         this.quantization = quantization;
+        this.device = device;
 
         this.transcriber = await pipeline(
             "automatic-speech-recognition",
             this.model_id,
             {
                 dtype: this.quantization,
-                device: "webgpu",
+                device: this.device,
                 progress_callback,
             }
         );
@@ -59,7 +61,7 @@ export class WebGPUASR extends BaseASR {
     }
 
     async release() {
-        console.log("Releasing WebGPU pipeline resources...");
+        console.log("Releasing Local Pipeline resources...");
         if (this.transcriber) {
             if (this.transcriber.dispose) {
                 await this.transcriber.dispose();

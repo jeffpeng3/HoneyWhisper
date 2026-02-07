@@ -23,11 +23,11 @@ export default defineManifest(async (env) => ({
         'storage',
     ],
     background: {
-        service_worker: 'src/background/index.js',
+        service_worker: 'src/background/background.js',
         type: 'module',
     },
     action: {
-        default_popup: 'src/popup/index.html',
+        default_popup: 'src/popup/popup.html',
         default_icon: {
             16: 'icons/icon16.png',
             48: 'icons/icon48.png',
@@ -35,7 +35,7 @@ export default defineManifest(async (env) => ({
         },
     },
     options_ui: {
-        page: 'src/options/index.html',
+        page: 'src/options/options.html',
         open_in_tab: true,
     },
     icons: {
@@ -46,8 +46,8 @@ export default defineManifest(async (env) => ({
     web_accessible_resources: [
         {
             resources: [
-                'src/offscreen/index.html',
-                'src/content/index.js',
+                'src/offscreen/offscreen.html',
+                'src/content/content.js',
                 'assets/*',
             ],
             matches: [
