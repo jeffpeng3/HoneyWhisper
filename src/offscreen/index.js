@@ -29,7 +29,7 @@ let pipelineConfig = {
         key: ''
     },
     translation: {
-        enabled: true, // Enable translation by default for demo
+        enabled: false,
         target: 'zh-TW'
     }
 };
@@ -126,14 +126,11 @@ function reportProgress(data) {
 
 async function initPipeline(config) {
     // 1. Initialize ASR
-    // Detect type based on config or model_id if strict 'type' isn't available from UI yet.
-
     let desiredType = config.asr.type;
-    // Simple heuristic for now:
+
+    // Fallback heuristic if type isn't explicitly set but model_id implies remote
     if (config.asr.model_id === 'remote' || config.asr.model_id.startsWith('http')) {
         desiredType = 'remote';
-    } else {
-        desiredType = 'webgpu';
     }
 
     if (!asrService || (desiredType === 'remote' && asrService instanceof WebGPUASR) || (desiredType === 'webgpu' && asrService instanceof RemoteASR)) {
@@ -166,9 +163,7 @@ async function initPipeline(config) {
 
     // 2. Initialize Translator
     if (!translatorService) {
-        // Default to Google for now as requested
         translatorService = new GoogleTranslator();
-        // translatorService = new BaseTranslator(); // Disable by default if preferred
     }
 }
 
@@ -201,10 +196,14 @@ async function generate(audio, isFinal = true) {
         // 2. Translate
         if (text.length > 0 && pipelineConfig.translation.enabled) {
             // Source is currentLanguage (or auto), target is configured target
-            const translated = await translatorService.translate(text, currentLanguage, pipelineConfig.translation.target);
-            if (translated && translated !== text) {
-                console.log(`Translated: "${translated}"`);
-                text = `${text} (${translated})`;
+            try {
+                const translated = await translatorService.translate(text, currentLanguage, pipelineConfig.translation.target);
+                if (translated && translated !== text) {
+                    console.log(`Translated: "${translated}"`);
+                    text = `${text} (${translated})`;
+                }
+            } catch (translateErr) {
+                console.warn("Translation failed:", translateErr);
             }
         }
 
@@ -319,23 +318,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
         if (message.target === 'offscreen') {
             if (message.type === 'START_RECORDING') {
-                if (message.language) {
-                    currentLanguage = message.language;
-                }
+                const settings = message.settings || {};
+
+                if (settings.language) currentLanguage = settings.language;
+                else if (message.language) currentLanguage = message.language;
 
                 // Update Config
-                if (message.model_id) pipelineConfig.asr.model_id = message.model_id;
-                if (message.quantization) pipelineConfig.asr.quantization = message.quantization || 'q4';
+                if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
+                else if (message.model_id) pipelineConfig.asr.model_id = message.model_id;
 
-                // If the user provided a custom endpoint or key via settings (not yet implemented in UI but supported here)
-                // we would update them here.
+                if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;
+                else if (message.quantization) pipelineConfig.asr.quantization = message.quantization;
+
+                // New Settings
+                if (settings.asrBackend) pipelineConfig.asr.type = settings.asrBackend;
+                if (settings.remoteEndpoint) pipelineConfig.asr.endpoint = settings.remoteEndpoint;
+                if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
+
+                if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
+                if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
 
                 startRecording(message.data);
             } else if (message.type === 'STOP_RECORDING') {
                 stopRecording();
             } else if (message.type === 'UPDATE_SETTINGS') {
-                if (message.settings && message.settings.language) {
-                    currentLanguage = message.settings.language;
+                const settings = message.settings;
+                if (settings) {
+                    if (settings.language) currentLanguage = settings.language;
+
+                    if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
+                    if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;
+
+                    if (settings.asrBackend) pipelineConfig.asr.type = settings.asrBackend;
+                    if (settings.remoteEndpoint) pipelineConfig.asr.endpoint = settings.remoteEndpoint;
+                    if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
+
+                    if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
+                    if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
+
+                    // If pipeline is active, maybe we should re-init if backend changed?
+                    // But initPipeline checks if backend changed and seamlessly switches.
+                    // So we might want to trigger a reload if we are not recording? Or only when next recording starts?
+                    // For now, next recording starts will pick up changes. 
+                    // If we are recording, initPipeline is called in startRecording.
+                    // We probably shouldn't hot-swap backend while recording without restart.
                 }
             } else if (message.type === 'CLEAR_CACHE') {
                 try {

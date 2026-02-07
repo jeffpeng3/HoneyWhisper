@@ -27,28 +27,52 @@ async function setupOffscreenDocument(path) {
     }
 }
 
-async function startCapture(tabId) {
+async function startCapture(tabId, profile = null) {
     const streamId = await chrome.tabCapture.getMediaStreamId({
         targetTabId: tabId,
     });
 
     currentTabId = tabId;
 
-    // Get settings
-    const { language, model_id, quantization } = await chrome.storage.sync.get({
-        language: 'en',
-        model_id: 'onnx-community/whisper-tiny',
-        quantization: 'q4'
-    });
+    let settings;
+
+    if (profile) {
+        // Construct settings from passed profile + global settings
+        const globalSettings = await chrome.storage.sync.get({
+            language: 'en',
+            translationEnabled: false,
+            targetLanguage: 'zh-TW'
+        });
+
+        settings = {
+            ...globalSettings,
+            model_id: profile.model_id,
+            quantization: profile.quantization,
+            asrBackend: profile.backend,
+            remoteEndpoint: profile.remote_endpoint,
+            remoteKey: profile.remote_key
+        };
+    } else {
+        // Fallback or Legacy path
+        settings = await chrome.storage.sync.get({
+            language: 'en',
+            model_id: 'onnx-community/whisper-tiny',
+            quantization: 'q4',
+            asrBackend: 'webgpu',
+            remoteEndpoint: '',
+            remoteKey: '',
+            translationEnabled: false,
+            targetLanguage: 'zh-TW'
+        });
+    }
 
     // Send streamId to offscreen document
+    // We send 'settings' which offscreen/index.js knows how to parse
     chrome.runtime.sendMessage({
         type: 'START_RECORDING',
         target: 'offscreen',
         data: streamId,
-        language,
-        model_id,
-        quantization
+        settings // Pass the entire settings object
     });
 
     isRecording = true;
@@ -101,7 +125,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 files: ['src/content/index.js']
             });
 
-            await startCapture(message.tabId);
+            // Pass profile if available
+            await startCapture(message.tabId, message.profile);
         }
         else if (message.type === 'REQUEST_STOP') {
             await stopCapture();
@@ -123,12 +148,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
         });
     }
-
-    // Relay to offscreen if needed (though runtime messages are broadcast, sometimes explicit targeting helps clarify intent)
-    // Actually runtime.sendMessage from popup goes to background. Does it go to offscreen?
-    // Yes, runtime.sendMessage goes to all extension pages/frames.
-    // So if Popup sends it, Offscreen hears it.
-    // But let's verification popup.js behavior.
 
     return true; // Keep channel open for async response
 });

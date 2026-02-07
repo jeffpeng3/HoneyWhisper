@@ -1,5 +1,6 @@
 <script>
   import { onMount, onDestroy } from "svelte";
+  import { DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
 
   // State
   let isRecording = false;
@@ -15,10 +16,30 @@
   let progressPercent = 0;
   let progressText = "Loading Model...";
   let progressStatus = "initiate"; // initiate, progress, done, error
-  let progressError = "";
+
+  // Profiles
+  let profiles = [];
+  let selectedProfileId = "";
 
   onMount(async () => {
-    // 1. Check recording state
+    // 1. Load Profiles & Settings
+    chrome.storage.sync.get(
+      {
+        profiles: DEFAULT_PROFILES,
+        activeProfileId: DEFAULT_PROFILES[0].id,
+      },
+      (items) => {
+        profiles = items.profiles || DEFAULT_PROFILES;
+        // Ensure default exists in list
+        if (!profiles.find((p) => p.id === items.activeProfileId)) {
+          selectedProfileId = profiles[0] ? profiles[0].id : "";
+        } else {
+          selectedProfileId = items.activeProfileId;
+        }
+      },
+    );
+
+    // 2. Check recording state
     try {
       const response = await chrome.runtime.sendMessage({ type: "GET_STATE" });
       if (response && response.isRecording) {
@@ -28,7 +49,7 @@
       // Background might not be ready
     }
 
-    // 2. Message Listeners
+    // 3. Message Listeners
     chrome.runtime.onMessage.addListener(handleMessage);
   });
 
@@ -57,12 +78,9 @@
         progressText = "Initializing...";
       } else if (message.data.status === "error") {
         progressText = "Error: " + message.data.error;
-        progressError = message.data.error;
       }
     } else if (message.type === "RECORDING_STARTED") {
       progressText = "Recording Active!";
-      // If we started from this popup, auto-close might be desired,
-      // but usually users want to see it started.
       if (autoCloseOnReady) {
         setTimeout(() => {
           window.close();
@@ -71,9 +89,21 @@
     }
   }
 
+  function onProfileChange() {
+    // Save selection
+    chrome.storage.sync.set({ activeProfileId: selectedProfileId });
+  }
+
   async function toggleRecording() {
     console.log("Toggle Recording clicked. Current state:", isRecording);
     if (!isRecording) {
+      // Find Selected Profile
+      const profile = profiles.find((p) => p.id === selectedProfileId);
+      if (!profile) {
+        alert("Please select a valid profile.");
+        return;
+      }
+
       // Start
       const tabs = await chrome.tabs.query({
         active: true,
@@ -83,7 +113,19 @@
 
       if (tab) {
         console.log("Found active tab:", tab.id);
-        chrome.runtime.sendMessage({ type: "REQUEST_START", tabId: tab.id });
+
+        // We pass the profile configuration directly in the start request
+        // This overrides whatever the background might load from default storage
+        // Actually, background loads from storage too.
+        // Best practice: Save as 'active settings' in storage before starting?
+        // OR pass it in the message. Let's pass in message.
+
+        chrome.runtime.sendMessage({
+          type: "REQUEST_START",
+          tabId: tab.id,
+          profile: profile, // Pass full profile
+        });
+
         setRecordingState(true);
         autoCloseOnReady = true;
       } else {
@@ -93,7 +135,6 @@
       }
     } else {
       // Stop
-      console.log("Sending REQUEST_STOP to background...");
       chrome.runtime.sendMessage({ type: "REQUEST_STOP" });
       setRecordingState(false);
     }
@@ -173,23 +214,39 @@
     </div>
   {/if}
 
+  <div class="control-group">
+    {#if !isRecording}
+      <label for="profileSelect">Profile</label>
+      <div class="select-row">
+        <select
+          id="profileSelect"
+          bind:value={selectedProfileId}
+          on:change={onProfileChange}
+        >
+          {#each profiles as profile}
+            <option value={profile.id}>{profile.name}</option>
+          {/each}
+        </select>
+        <button class="btn-icon" title="Manage Profiles" on:click={openOptions}
+          >⚙️</button
+        >
+      </div>
+    {/if}
+  </div>
+
   <button
     class="btn-main {isRecording ? 'btn-stop' : 'btn-start'}"
     on:click={toggleRecording}
   >
     <span>{isRecording ? "Stop Captioning" : "Start Captioning"}</span>
   </button>
-
-  <div class="footer-links">
-    <button class="btn-link-small" on:click={openOptions}>⚙️ Settings</button>
-  </div>
 </main>
 
 <style>
   :global(body) {
     font-family: system-ui, sans-serif;
     padding: 16px;
-    width: 280px; /* Slightly narrower since we have less content */
+    width: 280px;
     margin: 0;
   }
 
@@ -199,6 +256,40 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .control-group {
+    margin-bottom: 12px;
+  }
+
+  label {
+    font-size: 0.85em;
+    color: #6b7280;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .select-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  select {
+    flex: 1;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+  }
+
+  .btn-icon {
+    background: none;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0 8px;
+  }
+  .btn-icon:hover {
+    background: #f3f4f6;
   }
 
   .btn-main {
@@ -214,7 +305,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-top: 12px;
   }
 
   .btn-start {
@@ -240,13 +331,11 @@
     border-radius: 12px;
     font-weight: normal;
   }
-
   .status-recording {
     background: #fecaca;
     color: #dc2626;
   }
 
-  /* Active Tab Info */
   .active-tab-info {
     margin-bottom: 12px;
     font-size: 0.9em;
@@ -263,14 +352,11 @@
     text-decoration: none;
     font-weight: 500;
     cursor: pointer;
-    font-family: inherit;
-    font-size: inherit;
   }
   .active-tab-info .btn-link:hover {
     text-decoration: underline;
   }
 
-  /* Progress Bar */
   .progress-container {
     margin-bottom: 16px;
   }
@@ -290,25 +376,5 @@
   .progress-bar-fill {
     height: 100%;
     transition: width 0.2s;
-  }
-
-  .footer-links {
-    display: flex;
-    justify-content: center;
-    margin-top: 8px;
-  }
-  .btn-link-small {
-    background: none;
-    border: none;
-    color: #6b7280;
-    font-size: 0.9em;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .btn-link-small:hover {
-    color: #374151;
-    text-decoration: underline;
   }
 </style>
