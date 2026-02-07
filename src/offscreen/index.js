@@ -1,54 +1,10 @@
-import {
-    pipeline,
-    env
-} from "@huggingface/transformers";
 import { MicVAD } from "@ricky0123/vad-web";
+import { WebGPUASR } from "./pipeline/ASR/WebGPUASR.js";
+import { RemoteASR } from "./pipeline/ASR/RemoteASR.js";
+import { GoogleTranslator } from "./pipeline/Translation/GoogleTranslator.js";
+import { BaseTranslator } from "./pipeline/Translation/BaseTranslator.js";
 
-console.log("HoneyWhisper Offscreen Script Loaded");
-
-// Configure local environment for Extensions
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/');
-env.backends.onnx.logLevel = 'error';
-
-const MAX_NEW_TOKENS = 64;
-
-// Singleton Whisper Model Class
-class AutomaticSpeechRecognitionPipeline {
-    static model_id = 'onnx-community/whisper-tiny';
-    static quantization = 'q4';
-    static transcriber = null;
-
-    static async getInstance(progress_callback = null) {
-        this.transcriber ??= await pipeline(
-            "automatic-speech-recognition",
-            this.model_id,
-            {
-                dtype: this.quantization,
-                device: "webgpu",
-                progress_callback,
-            }
-        );
-        return this.transcriber;
-    }
-
-    static async reset(new_model_id, new_quantization = 'q4') {
-        this.model_id = new_model_id;
-        this.quantization = new_quantization;
-        await this.release();
-    }
-
-    static async release() {
-        if (this.transcriber) {
-            console.log("Releasing pipeline resources...");
-            if (this.transcriber && this.transcriber.dispose) {
-                await this.transcriber.dispose();
-            }
-            this.transcriber = null;
-        }
-    }
-}
+console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 
 // Global State
 let processing = false;
@@ -58,7 +14,27 @@ let vadInstance = null;
 let audioContext = null;
 let sourceNode = null;
 
-// Progress Reporting
+// Pipeline Components
+let asrService = null;
+let translatorService = null;
+
+// Current Configuration
+let pipelineConfig = {
+    asr: {
+        type: 'webgpu', // 'webgpu' or 'remote'
+        model_id: 'onnx-community/whisper-tiny',
+        quantization: 'q4',
+        // Remote config
+        endpoint: '',
+        key: ''
+    },
+    translation: {
+        enabled: true, // Enable translation by default for demo
+        target: 'zh-TW'
+    }
+};
+
+// --- Progress Reporting (Legacy/Compatible) ---
 class MultiFileProgress {
     constructor() {
         this.files = {}; // { filename: { loaded: 0, total: 100, weight: 1 } }
@@ -93,19 +69,11 @@ class MultiFileProgress {
             }
         }
 
-        // Calculate Global Progress
-        // Estimate total weight: Assume at least 1 model file (100) + 5 config files (5) = 105
-        // If we see more model files, we add them to the denominator dynamically if needed, 
-        // but that causes regression.
-        // Instead, we'll use a fixed large denominator that covers most cases (Encoder + Decoder = 200).
-        // Let's assume 250 total weight units for 0-100%.
-        // If it goes over, we clamp at 99% until 'done' fires.
-
-        const ESTIMATED_TOTAL_WEIGHT = 220; // 2 models * 100 + 20 misc
+        const ESTIMATED_TOTAL_WEIGHT = 220;
 
         let currentWeightedSum = 0;
         for (const f of Object.values(this.files)) {
-            currentWeightedSum += f.progress * f.weight; // (0-100) * weight
+            currentWeightedSum += f.progress * f.weight;
         }
 
         let global = currentWeightedSum / ESTIMATED_TOTAL_WEIGHT;
@@ -122,7 +90,7 @@ class MultiFileProgress {
         reportProgressRaw({
             status: 'progress',
             progress: global,
-            file: data.file, // Pass through current file name
+            file: data.file,
         });
     }
 
@@ -154,18 +122,60 @@ function reportProgress(data) {
     }
 }
 
-// Load Models
-async function loadModels() {
-    try {
-        reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing Pipeline...' });
-        await AutomaticSpeechRecognitionPipeline.getInstance((data) => reportProgress(data));
+// --- Pipeline Logic ---
 
-        // Send global done signal
+async function initPipeline(config) {
+    // 1. Initialize ASR
+    // Detect type based on config or model_id if strict 'type' isn't available from UI yet.
+
+    let desiredType = config.asr.type;
+    // Simple heuristic for now:
+    if (config.asr.model_id === 'remote' || config.asr.model_id.startsWith('http')) {
+        desiredType = 'remote';
+    } else {
+        desiredType = 'webgpu';
+    }
+
+    if (!asrService || (desiredType === 'remote' && asrService instanceof WebGPUASR) || (desiredType === 'webgpu' && asrService instanceof RemoteASR)) {
+        await releaseASR();
+        if (desiredType === 'remote') {
+            asrService = new RemoteASR();
+        } else {
+            asrService = new WebGPUASR();
+        }
+    }
+
+    // Load Model
+    reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing Pipeline...' });
+
+    try {
+        await asrService.load({
+            model_id: config.asr.model_id,
+            quantization: config.asr.quantization,
+            endpoint: config.asr.endpoint,
+            apiKey: config.asr.key,
+            progress_callback: (data) => reportProgress(data)
+        });
         reportProgress({ status: 'done' });
-        console.log("Whisper Pipeline loaded");
-    } catch (error) {
-        console.error("Pipeline load error:", error);
-        reportProgress({ status: 'error', error: error.message });
+        console.log(`ASR Service Loaded: ${desiredType}`);
+    } catch (err) {
+        console.error("ASR Load Error:", err);
+        reportProgress({ status: 'error', error: err.message });
+        throw err;
+    }
+
+    // 2. Initialize Translator
+    if (!translatorService) {
+        // Default to Google for now as requested
+        translatorService = new GoogleTranslator();
+        // translatorService = new BaseTranslator(); // Disable by default if preferred
+    }
+}
+
+async function releaseASR() {
+    if (asrService) {
+        await asrService.release();
+        asrService = null;
     }
 }
 
@@ -173,25 +183,30 @@ async function loadModels() {
 async function generate(audio, isFinal = true) {
     if (processing) {
         console.warn("Processing busy, skipping...");
+        return;
     }
     processing = true;
 
     try {
-        const transcriber = await AutomaticSpeechRecognitionPipeline.getInstance();
-
-        const generateOptions = {
-            max_new_tokens: MAX_NEW_TOKENS,
-            return_timestamps: false,
-        };
-
-        if (currentLanguage && currentLanguage !== 'auto') {
-            generateOptions.language = currentLanguage;
+        if (!asrService) {
+            throw new Error("Pipeline not initialized");
         }
 
-        const output = await transcriber(audio, generateOptions);
-        const text = output.text.trim();
+        // 1. Transcribe
+        const transcript = await asrService.transcribe(audio);
+        let text = transcript.text;
 
-        console.log(`Generated: "${text}"`);
+        console.log(`Transcribed: "${text}"`);
+
+        // 2. Translate
+        if (text.length > 0 && pipelineConfig.translation.enabled) {
+            // Source is currentLanguage (or auto), target is configured target
+            const translated = await translatorService.translate(text, currentLanguage, pipelineConfig.translation.target);
+            if (translated && translated !== text) {
+                console.log(`Translated: "${translated}"`);
+                text = `${text} (${translated})`;
+            }
+        }
 
         if (text.length > 0) {
             chrome.runtime.sendMessage({
@@ -203,18 +218,18 @@ async function generate(audio, isFinal = true) {
         }
 
     } catch (err) {
-        console.error("Generation Error:", err);
+        console.error("Generation/Translation Error:", err);
     } finally {
         processing = false;
     }
 }
 
-// Start Recording using vad-web
+// Start Recording
 async function startRecording(streamId) {
     if (vadInstance) return;
 
     try {
-        await loadModels();
+        await initPipeline(pipelineConfig);
 
         stream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -226,7 +241,7 @@ async function startRecording(streamId) {
             video: false
         });
 
-        // Restore Audio Playback (Route to speakers) & Optimize Lifecycle
+        // Restore Audio
         if (!audioContext) {
             audioContext = new AudioContext();
         }
@@ -268,6 +283,7 @@ async function startRecording(streamId) {
 
     } catch (err) {
         console.error("Error starting recording:", err);
+        reportProgress({ status: 'error', error: err.message });
     }
 }
 
@@ -284,7 +300,6 @@ function stopRecording() {
         stream = null;
     }
 
-    // Cleanup Audio Routing
     if (sourceNode) {
         sourceNode.disconnect();
         sourceNode = null;
@@ -296,7 +311,7 @@ function stopRecording() {
         text: ''
     }).catch(() => { });
 
-    AutomaticSpeechRecognitionPipeline.release().catch(err => console.error("Error releasing pipeline:", err));
+    releaseASR().catch(err => console.error("Error releasing pipeline:", err));
 }
 
 // Message Listener
@@ -307,13 +322,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (message.language) {
                     currentLanguage = message.language;
                 }
-                const newModel = message.model_id;
-                const newQuant = message.quantization || 'q4';
 
-                if (newModel && (newModel !== AutomaticSpeechRecognitionPipeline.model_id || newQuant !== AutomaticSpeechRecognitionPipeline.quantization)) {
-                    await AutomaticSpeechRecognitionPipeline.reset(newModel, newQuant);
-                    await loadModels();
-                }
+                // Update Config
+                if (message.model_id) pipelineConfig.asr.model_id = message.model_id;
+                if (message.quantization) pipelineConfig.asr.quantization = message.quantization || 'q4';
+
+                // If the user provided a custom endpoint or key via settings (not yet implemented in UI but supported here)
+                // we would update them here.
+
                 startRecording(message.data);
             } else if (message.type === 'STOP_RECORDING') {
                 stopRecording();
@@ -332,7 +348,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } else if (message.type === 'GET_CACHED_MODELS') {
                 try {
                     const keys = await caches.keys();
-                    // Filter for transformers cache
                     const models = keys.filter(k => k.startsWith('transformers-cache-'));
                     chrome.runtime.sendMessage({
                         target: 'popup',
@@ -346,4 +361,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
     })();
 });
-
