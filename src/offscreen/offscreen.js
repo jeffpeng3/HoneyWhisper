@@ -1,6 +1,7 @@
 import { MicVAD } from "@ricky0123/vad-web";
 import { BaseTranslator } from "./pipeline/Translation/BaseTranslator.js";
 import { BaseASR } from "./pipeline/ASR/BaseASR.js";
+import "./pipeline/registry_loader.js";
 
 console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 

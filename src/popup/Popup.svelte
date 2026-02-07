@@ -175,7 +175,7 @@
     if (chrome.runtime.openOptionsPage) {
       chrome.runtime.openOptionsPage();
     } else {
-      window.open(chrome.runtime.getURL("src/options/Options.html"));
+      window.open(chrome.runtime.getURL("src/options/options.html"));
     }
   }
 </script>
