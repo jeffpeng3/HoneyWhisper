@@ -1,10 +1,16 @@
 import { pipeline, env } from "@huggingface/transformers";
+import ortWasmUrl from '../../../../node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm?url';
 import { BaseASR } from "./BaseASR.js";
 
 // Configure local environment for Extensions
 env.allowLocalModels = false;
 env.useBrowserCache = true;
-env.backends.onnx.wasm.wasmPaths = chrome.runtime.getURL('assets/');
+env.backends.onnx.wasm.wasmPaths = {
+    'ort-wasm-simd-threaded.jsep.wasm': ortWasmUrl,
+    'ort-wasm-simd-threaded.jsep.mjs': chrome.runtime.getURL('assets/ort-wasm-simd-threaded.jsep.mjs'),
+    'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('assets/ort-wasm-simd-threaded.wasm'),
+    'ort-wasm-simd-threaded.mjs': chrome.runtime.getURL('assets/ort-wasm-simd-threaded.mjs'),
+};
 env.backends.onnx.logLevel = 'error';
 
 const MAX_NEW_TOKENS = 64;

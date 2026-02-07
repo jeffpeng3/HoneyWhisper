@@ -102,7 +102,7 @@ export default defineConfig({
         },
         // ONNX Runtime Assets 
         {
-          src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded*.wasm',
+          src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm',
           dest: 'assets',
         },
         {
