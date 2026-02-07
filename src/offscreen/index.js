@@ -21,9 +21,7 @@ class AutomaticSpeechRecognitionPipeline {
     static transcriber = null;
 
     static async getInstance(progress_callback = null) {
-        if (this.transcriber) return this.transcriber;
-
-        this.transcriber = await pipeline(
+        this.transcriber ??= await pipeline(
             "automatic-speech-recognition",
             this.model_id,
             {
@@ -32,22 +30,23 @@ class AutomaticSpeechRecognitionPipeline {
                 progress_callback,
             }
         );
-
         return this.transcriber;
     }
 
     static async reset(new_model_id, new_quantization = 'q4') {
         this.model_id = new_model_id;
         this.quantization = new_quantization;
+        await this.release();
+    }
 
+    static async release() {
         if (this.transcriber) {
-            console.log("Disposing old pipeline...");
-            // Attempt to dispose the underlying model if accessible
-            if (this.transcriber.model && this.transcriber.model.dispose) {
-                await this.transcriber.model.dispose();
+            console.log("Releasing pipeline resources...");
+            if (this.transcriber && this.transcriber.dispose) {
+                await this.transcriber.dispose();
             }
+            this.transcriber = null;
         }
-        this.transcriber = null;
     }
 }
 
@@ -60,7 +59,82 @@ let audioContext = null;
 let sourceNode = null;
 
 // Progress Reporting
-function reportProgress(data) {
+class MultiFileProgress {
+    constructor() {
+        this.files = {}; // { filename: { loaded: 0, total: 100, weight: 1 } }
+        this.lastProgress = 0;
+    }
+
+    update(data) {
+        if (data.status === 'initiate') {
+            const isModel = data.file.endsWith('.onnx');
+            const weight = isModel ? 100 : 1;
+            this.files[data.file] = {
+                progress: 0,
+                weight: weight
+            };
+        } else if (data.status === 'progress') {
+            if (!this.files[data.file]) {
+                const isModel = data.file.endsWith('.onnx');
+                this.files[data.file] = { progress: 0, weight: isModel ? 100 : 1 };
+            }
+            this.files[data.file].progress = data.progress || 0;
+        } else if (data.status === 'done') {
+            if (data.file) {
+                // Individual file done
+                if (this.files[data.file]) {
+                    this.files[data.file].progress = 100;
+                }
+            } else {
+                // All done
+                this.lastProgress = 100;
+                reportProgressRaw({ status: 'done', progress: 100 });
+                return;
+            }
+        }
+
+        // Calculate Global Progress
+        // Estimate total weight: Assume at least 1 model file (100) + 5 config files (5) = 105
+        // If we see more model files, we add them to the denominator dynamically if needed, 
+        // but that causes regression.
+        // Instead, we'll use a fixed large denominator that covers most cases (Encoder + Decoder = 200).
+        // Let's assume 250 total weight units for 0-100%.
+        // If it goes over, we clamp at 99% until 'done' fires.
+
+        const ESTIMATED_TOTAL_WEIGHT = 220; // 2 models * 100 + 20 misc
+
+        let currentWeightedSum = 0;
+        for (const f of Object.values(this.files)) {
+            currentWeightedSum += f.progress * f.weight; // (0-100) * weight
+        }
+
+        let global = currentWeightedSum / ESTIMATED_TOTAL_WEIGHT;
+
+        // Monotonic check
+        if (global < this.lastProgress) global = this.lastProgress;
+
+        // Clamp
+        if (global > 99) global = 99;
+
+        this.lastProgress = global;
+
+        // Only report if significant change or initiate
+        reportProgressRaw({
+            status: 'progress',
+            progress: global,
+            file: data.file, // Pass through current file name
+        });
+    }
+
+    reset() {
+        this.files = {};
+        this.lastProgress = 0;
+    }
+}
+
+const progressTracker = new MultiFileProgress();
+
+function reportProgressRaw(data) {
     chrome.runtime.sendMessage({
         type: 'MODEL_LOADING',
         target: 'popup',
@@ -68,12 +142,26 @@ function reportProgress(data) {
     }).catch(() => { });
 }
 
+function reportProgress(data) {
+    // If 'done' with no file, it's global done
+    if (data.status === 'done' && !data.file) {
+        progressTracker.update(data); // Will trigger done
+        progressTracker.reset(); // Reset for next run
+    } else if (data.status === 'error') {
+        reportProgressRaw(data);
+    } else {
+        progressTracker.update(data);
+    }
+}
+
 // Load Models
 async function loadModels() {
     try {
         reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing Pipeline...' });
         await AutomaticSpeechRecognitionPipeline.getInstance((data) => reportProgress(data));
-        reportProgress({ status: 'done', name: 'Whisper', file: 'Ready' });
+
+        // Send global done signal
+        reportProgress({ status: 'done' });
         console.log("Whisper Pipeline loaded");
     } catch (error) {
         console.error("Pipeline load error:", error);
@@ -207,6 +295,8 @@ function stopRecording() {
         type: 'SUBTITLE_UPDATE',
         text: ''
     }).catch(() => { });
+
+    AutomaticSpeechRecognitionPipeline.release().catch(err => console.error("Error releasing pipeline:", err));
 }
 
 // Message Listener
@@ -257,5 +347,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
 });
 
-// Initial Load
-loadModels();
