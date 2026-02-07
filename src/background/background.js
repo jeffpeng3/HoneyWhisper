@@ -89,14 +89,10 @@ async function stopCapture() {
     currentTabId = null;
 
     // Close offscreen to release WebGPU resources
-    if (await hasOffscreenDocument('src/offscreen/index.html')) {
-        try {
-            await chrome.offscreen.closeDocument();
-        } catch (err) {
-            console.error('Error closing offscreen document:', err);
-        }
-    } else {
-        console.log('Offscreen document not found');
+    try {
+        await chrome.offscreen.closeDocument();
+    } catch (err) {
+        console.error('Error closing offscreen document:', err);
     }
 
     // Notify content to remove overlay
