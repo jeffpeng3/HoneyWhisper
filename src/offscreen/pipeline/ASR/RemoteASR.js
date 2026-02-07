@@ -6,12 +6,14 @@ export class RemoteASR extends BaseASR {
         super();
         this.endpoint = "http://localhost:9000/v1/audio/transcriptions"; // Default
         this.apiKey = "";
+        this.language = "en";
     }
 
     async load(config) {
         // config can override the endpoint and key
         if (config.endpoint) this.endpoint = config.endpoint;
         if (config.apiKey) this.apiKey = config.apiKey;
+        if (config.language) this.language = config.language;
     }
 
     async transcribe(audioData) {
@@ -20,6 +22,7 @@ export class RemoteASR extends BaseASR {
             const formData = new FormData();
             formData.append("file", wavBlob, "audio.wav");
             formData.append("model", "whisper-1"); // Standard for OpenAI API compatibility
+            formData.append("language", this.language);
 
             const headers = {};
             if (this.apiKey) {

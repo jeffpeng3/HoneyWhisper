@@ -1,7 +1,4 @@
 import { MicVAD } from "@ricky0123/vad-web";
-import { LocalASR } from "./pipeline/ASR/LocalASR.js";
-import { RemoteASR } from "./pipeline/ASR/RemoteASR.js";
-import { GoogleTranslator } from "./pipeline/Translation/GoogleTranslator.js";
 import { BaseTranslator } from "./pipeline/Translation/BaseTranslator.js";
 import { BaseASR } from "./pipeline/ASR/BaseASR.js";
 
@@ -10,7 +7,6 @@ console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 // Global State
 let processing = false;
 let stream = null;
-let currentLanguage = 'en';
 let vadInstance = null;
 let audioContext = null;
 let sourceNode = null;
@@ -25,6 +21,7 @@ let pipelineConfig = {
         type: 'webgpu', // 'webgpu', 'wasm', or 'remote'
         model_id: 'onnx-community/whisper-tiny',
         quantization: 'q4',
+        language: 'en', // Default language
         // Remote config
         endpoint: '',
         key: ''
@@ -160,10 +157,11 @@ async function initPipeline(config) {
             endpoint: config.asr.endpoint,
             apiKey: config.asr.key,
             device: device,
+            language: config.asr.language, // Use configured language
             progress_callback: (data) => reportProgress(data)
         });
         reportProgress({ status: 'done' });
-        console.log(`ASR Service Loaded: ${desiredType} (Device: ${device})`);
+        console.log(`ASR Service Loaded: ${desiredType} (Device: ${device}, Language: ${config.asr.language})`);
     } catch (err) {
         console.error("ASR Load Error:", err);
         reportProgress({ status: 'error', error: err.message });
@@ -204,9 +202,9 @@ async function generate(audio, isFinal = true) {
 
         // 2. Translate
         if (text.length > 0 && pipelineConfig.translation.enabled) {
-            // Source is currentLanguage (or auto), target is configured target
+            // Source is pipelineConfig.asr.language (or auto), target is configured target
             try {
-                const translated = await translatorService.translate(text, currentLanguage, pipelineConfig.translation.target);
+                const translated = await translatorService.translate(text, pipelineConfig.asr.language, pipelineConfig.translation.target);
                 if (translated && translated !== text) {
                     console.log(`Translated: "${translated}"`);
                     text = `${text} (${translated})`;
@@ -329,10 +327,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (message.type === 'START_RECORDING') {
                 const settings = message.settings || {};
 
-                if (settings.language) currentLanguage = settings.language;
-                else if (message.language) currentLanguage = message.language;
-
                 // Update Config
+                if (settings.language) pipelineConfig.asr.language = settings.language;
+                else if (message.language) pipelineConfig.asr.language = message.language;
+
                 if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
                 else if (message.model_id) pipelineConfig.asr.model_id = message.model_id;
 
@@ -353,7 +351,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } else if (message.type === 'UPDATE_SETTINGS') {
                 const settings = message.settings;
                 if (settings) {
-                    if (settings.language) currentLanguage = settings.language;
+                    if (settings.language) pipelineConfig.asr.language = settings.language;
 
                     if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
                     if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;

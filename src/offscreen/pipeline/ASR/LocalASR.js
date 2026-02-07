@@ -16,10 +16,14 @@ export class LocalASR extends BaseASR {
         this.model_id = null;
         this.quantization = null;
         this.device = null;
+        this.language = 'en';
     }
 
     async load(config) {
-        const { model_id, quantization, progress_callback, device = "webgpu" } = config;
+        const { model_id, quantization, progress_callback, device = "webgpu", language = 'en' } = config;
+
+        // Update language regardless of whether we reload the model
+        this.language = language;
 
         // Check if we need to reload
         if (this.transcriber && this.model_id === model_id && this.quantization === quantization && this.device === device) {
@@ -50,10 +54,10 @@ export class LocalASR extends BaseASR {
             throw new Error("Model not loaded");
         }
 
-        // We can add language support here if passed in arguments or config
         const generateOptions = {
             max_new_tokens: MAX_NEW_TOKENS,
             return_timestamps: false,
+            language: this.language,
         };
 
         const output = await this.transcriber(audioData, generateOptions);
