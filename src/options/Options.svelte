@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { ModelRegistry, DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
+  import ModelHubCard from "./ModelHubCard.svelte";
 
   // Tabs
   let activeTab = "profiles"; // profiles, hub, settings
@@ -83,7 +84,7 @@
       // Try fetching remote
       try {
         const res = await fetch(
-          "https://raw.githubusercontent.com/jeffpeng3/HoneyWhisper/master/public/models.json",
+          "https://raw.githubusercontent.com/jeffpeng3/HoneyWhisper/refs/heads/master/public/models.json",
         );
         if (res.ok) {
           const remoteModels = await res.json();
@@ -378,23 +379,10 @@
           <div class="hub-grid">
             {#each hubModels as model}
               {#if model.type !== "remote"}
-                <div class="hub-card">
-                  <h3>{model.name}</h3>
-                  <p>{model.id}</p>
-                  <div class="hub-actions">
-                    <a
-                      href={model.homepage ||
-                        `https://huggingface.co/${model.id}`}
-                      target="_blank"
-                      class="link-btn">View on HF</a
-                    >
-                    <button
-                      class="btn-primary"
-                      on:click={() => createProfileFromModel(model)}
-                      >Create Profile</button
-                    >
-                  </div>
-                </div>
+                <ModelHubCard
+                  {model}
+                  on:create={() => createProfileFromModel(model)}
+                />
               {/if}
             {/each}
           </div>
@@ -550,8 +538,7 @@
     gap: 16px;
   }
 
-  .profile-card,
-  .hub-card {
+  .profile-card {
     background: white;
     padding: 16px;
     border-radius: 8px;
@@ -559,8 +546,7 @@
     border: 1px solid #e5e7eb;
   }
 
-  .profile-card h3,
-  .hub-card h3 {
+  .profile-card h3 {
     margin: 0 0 8px 0;
     font-size: 1.1rem;
   }
@@ -598,8 +584,7 @@
     color: #991b1b;
   }
 
-  .profile-actions,
-  .hub-actions {
+  .profile-actions {
     display: flex;
     gap: 8px;
     margin-top: 12px;

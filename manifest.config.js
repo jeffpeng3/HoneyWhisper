@@ -3,17 +3,12 @@ import packageJson from './package.json';
 
 const { version } = packageJson;
 
-// Convert from Semver (e.g., 0.1.0-beta6)
-const [major, minor, patch, label = '0'] = version
-    // can only contain digits, dots, or dash
-    .replace(/[^\d.-]+/g, '')
-    // split into version parts
-    .split(/[.-]/);
+const [major, minor, patch] = version.replace(/[^\d.-]+/g, '').split(/[.-]/);
 
 export default defineManifest(async (env) => ({
     manifest_version: 3,
     name: 'HoneyWhisper',
-    version: `${major}.${minor}.${patch}.${label}`,
+    version: `${major}.${minor}.${patch}`,
     description: 'Real-time speech-to-text using HoneyWhisper',
     permissions: [
         'tabCapture',
@@ -39,18 +34,16 @@ export default defineManifest(async (env) => ({
     icons: {
         128: 'icons/icon_idle.png',
     },
-    web_accessible_resources: [
-        {
-            resources: [
-                'src/offscreen/offscreen.html',
-                'src/content/content.js',
-                'assets/*',
-            ],
-            matches: [
-                '<all_urls>',
-            ],
-        },
-    ],
+    // web_accessible_resources: [
+    //     {
+    //         resources: [
+    //             'assets/*',
+    //         ],
+    //         matches: [
+    //             '<all_urls>',
+    //         ],
+    //     },
+    // ],
     content_security_policy: {
         extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
     },

@@ -1,24 +1,25 @@
+import contentScriptUrl from '../content/content.js?script';
+const offscreenUrl = '/offscreen.html';
 // background.js
 let offscreenCreating;
 let isRecording = false;
 let currentTabId = null;
 
 // Check if offscreen document exists
-async function hasOffscreenDocument(path) {
-    const offscreenUrl = chrome.runtime.getURL(path);
+async function hasOffscreenDocument() {
     const matchedClients = await clients.matchAll();
     return matchedClients.some(c => c.url === offscreenUrl);
 }
 
-async function setupOffscreenDocument(path) {
-    if (await hasOffscreenDocument(path)) return;
+async function setupOffscreenDocument() {
+    if (await hasOffscreenDocument()) return;
 
     // Create offscreen document
     if (offscreenCreating) {
         await offscreenCreating;
     } else {
         offscreenCreating = chrome.offscreen.createDocument({
-            url: path,
+            url: offscreenUrl,
             reasons: [chrome.offscreen.Reason.USER_MEDIA],
             justification: 'Recording tab audio for transcription',
         });
@@ -120,12 +121,12 @@ async function stopCapture() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const handleMessage = async () => {
         if (message.type === 'REQUEST_START') {
-            await setupOffscreenDocument('src/offscreen/offscreen.html');
+            await setupOffscreenDocument('offscreen.html');
 
             // Inject content script
             chrome.scripting.executeScript({
                 target: { tabId: message.tabId },
-                files: ['src/content/content.js']
+                files: [contentScriptUrl]
             });
 
             // Pass profile if available
