@@ -82,7 +82,6 @@ async function startCapture(tabId, profile = null) {
     });
 
     isRecording = true;
-    setIcon(true);
 }
 
 async function stopCapture() {
@@ -134,6 +133,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         else if (message.type === 'REQUEST_STOP') {
             await stopCapture();
+        }
+        else if (message.type === 'RECORDING_STARTED') {
+            setIcon(true);
         }
         else if (message.type === 'GET_STATE') {
             sendResponse({ isRecording, currentTabId });

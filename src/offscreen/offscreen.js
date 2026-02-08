@@ -286,7 +286,9 @@ async function startRecording(streamId) {
 
         vadInstance.start();
         console.log("VAD Started");
-        chrome.runtime.sendMessage({ target: 'popup', type: 'RECORDING_STARTED' }).catch(() => { });
+        console.log("VAD Started");
+        // Broadcast to all (popup and background)
+        chrome.runtime.sendMessage({ type: 'RECORDING_STARTED' }).catch(() => { });
 
     } catch (err) {
         console.error("Error starting recording:", err);
