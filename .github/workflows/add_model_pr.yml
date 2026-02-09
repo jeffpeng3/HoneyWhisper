@@ -1,0 +1,53 @@
+name: Add Model from Issue
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  process-model-request:
+    if: contains(github.event.issue.labels.*.name, 'model-recommendation')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Process Issue and Update models.json
+        id: process
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_CREATOR: ${{ github.event.issue.user.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python .github/scripts/process_model_request.py
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            feat: Add model ${{ env.MODEL_ID }}
+            
+            Co-authored-by: ${{ github.event.issue.user.login }} <${{ github.event.issue.user.id }}+${{ github.event.issue.user.login }}@users.noreply.github.com>
+          branch: "add-model-${{ github.event.issue.number }}"
+          title: "feat: Add model ${{ env.MODEL_ID }}"
+          body: |
+            Closes #${{ github.event.issue.number }}
+            
+            This PR adds the model `${{ env.MODEL_ID }}` recommended by @${{ github.event.issue.user.login }}.
+            
+            Model Name: ${{ env.MODEL_NAME }}
+          labels: "automated-pr, model-add"
+          signoff: true
+          committer: GitHub <noreply@github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
