@@ -112,6 +112,12 @@ export default defineConfig({
       ],
     }),
   ],
+  resolve: {
+    alias: {
+      "@": path.resolve(process.cwd(), "./src"),
+      "$lib": path.resolve(process.cwd(), "./src/lib"),
+    },
+  },
   build: {
     target: 'esnext',
     rollupOptions: {
