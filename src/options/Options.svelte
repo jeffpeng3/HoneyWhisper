@@ -2,6 +2,20 @@
   import { onMount } from "svelte";
   import { ModelRegistry, DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
   import ModelHubCard from "./ModelHubCard.svelte";
+  import { ModeWatcher } from "mode-watcher";
+  import ThemeToggle from "$lib/components/ThemeToggle.svelte";
+
+  // Shadcn UI Components
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
+  import * as Card from "$lib/components/ui/card/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Switch } from "$lib/components/ui/switch/index.js";
+  import { Slider } from "$lib/components/ui/slider/index.js";
+  import * as RadioGroup from "$lib/components/ui/radio-group/index.js";
 
   // Tabs
   let activeTab = "profiles"; // profiles, hub, settings
@@ -88,9 +102,6 @@
         );
         if (res.ok) {
           const remoteModels = await res.json();
-          // Merge? Or just replace?
-          // For now simple replacement or concat if we want to keep local defaults
-          // Let's just use what we get but ensure we have valid structure
           hubModels = remoteModels;
         }
       } catch (err) {
@@ -229,489 +240,340 @@
       installedModels = ["Error: " + err.message];
     }
   }
+
+  // Helpers for Select
+  function getLanguageName(code) {
+    return LANGUAGES.find((l) => l.code === code)?.name || code;
+  }
+  function getTargetLanguageName(code) {
+    return TARGET_LANGUAGES.find((l) => l.code === code)?.name || code;
+  }
 </script>
 
-<main>
-  <div class="header">
-    <h1>HoneyWhisper</h1>
-    {#if statusMessage}
-      <span class="status-msg">{statusMessage}</span>
-    {/if}
+<ModeWatcher />
+
+<main class="container mx-auto p-4 max-w-4xl">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">HoneyWhisper</h1>
+    <div class="flex items-center gap-4">
+      {#if statusMessage}
+        <span class="text-green-600 font-medium">{statusMessage}</span>
+      {/if}
+      <ThemeToggle />
+    </div>
   </div>
 
-  <div class="tabs">
-    <button
-      class="tab {activeTab === 'profiles' ? 'active' : ''}"
-      on:click={() => (activeTab = "profiles")}>Profiles</button
-    >
-    <button
-      class="tab {activeTab === 'hub' ? 'active' : ''}"
-      on:click={() => (activeTab = "hub")}>Model Hub</button
-    >
-    <button
-      class="tab {activeTab === 'settings' ? 'active' : ''}"
-      on:click={() => (activeTab = "settings")}>Settings</button
-    >
-  </div>
+  <Tabs.Root
+    value={activeTab}
+    onValueChange={(v) => (activeTab = v)}
+    class="w-full"
+  >
+    <Tabs.List class="grid w-full grid-cols-3 mb-6">
+      <Tabs.Trigger value="profiles">profiles</Tabs.Trigger>
+      <Tabs.Trigger value="hub">Model Hub</Tabs.Trigger>
+      <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
+    </Tabs.List>
 
-  <div class="content">
-    {#if activeTab === "profiles"}
-      <div class="profiles-section">
-        {#if !editingProfileId}
-          <div class="list-header">
-            <h2>My Profiles</h2>
-            <button class="btn-primary" on:click={createProfile}
-              >+ New Profile</button
-            >
-          </div>
-          <div class="profile-grid">
-            {#each profiles as profile}
-              <div class="profile-card">
-                <h3>{profile.name}</h3>
-                <div class="profile-details">
-                  <span class="badge {profile.backend}">{profile.backend}</span>
-                  <span class="model-name">{profile.model_id}</span>
-                </div>
-                <div class="profile-actions">
-                  <button on:click={() => editProfile(profile)}>Edit</button>
-                  <button
-                    class="btn-danger"
-                    on:click={() => deleteProfile(profile.id)}>Delete</button
+    <Tabs.Content value="profiles">
+      {#if !editingProfileId}
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-semibold">My Profiles</h2>
+          <Button onclick={createProfile}>+ New Profile</Button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {#each profiles as profile}
+            <Card.Root>
+              <Card.Header>
+                <Card.Title>{profile.name}</Card.Title>
+              </Card.Header>
+              <Card.Content>
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center gap-2">
+                    <Badge
+                      variant={profile.backend === "remote"
+                        ? "destructive"
+                        : "secondary"}>{profile.backend}</Badge
+                    >
+                  </div>
+                  <span
+                    class="text-sm text-muted-foreground truncate"
+                    title={profile.model_id}>{profile.model_id || "N/A"}</span
                   >
                 </div>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <div class="editor-section">
-            <h2>
+              </Card.Content>
+              <Card.Footer class="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onclick={() => editProfile(profile)}>Edit</Button
+                >
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onclick={() => deleteProfile(profile.id)}>Delete</Button
+                >
+              </Card.Footer>
+            </Card.Root>
+          {/each}
+        </div>
+      {:else}
+        <Card.Root>
+          <Card.Header>
+            <Card.Title>
               {profiles.find((p) => p.id === tempProfile.id)
                 ? "Edit Profile"
                 : "New Profile"}
-            </h2>
-
-            <div class="form-group">
-              <label>Profile Name</label>
-              <input type="text" bind:value={tempProfile.name} />
+            </Card.Title>
+          </Card.Header>
+          <Card.Content class="space-y-4">
+            <div class="grid gap-2">
+              <Label for="profile-name">Profile Name</Label>
+              <Input
+                id="profile-name"
+                type="text"
+                bind:value={tempProfile.name}
+              />
             </div>
 
-            <div class="form-group">
-              <label>Backend</label>
-              <div class="radio-group">
-                <label
-                  ><input
-                    type="radio"
-                    bind:group={tempProfile.backend}
-                    value="webgpu"
-                  /> Local (WebGPU)</label
-                >
-                <label
-                  ><input
-                    type="radio"
-                    bind:group={tempProfile.backend}
-                    value="wasm"
-                  /> Local (WASM)</label
-                >
-                <label
-                  ><input
-                    type="radio"
-                    bind:group={tempProfile.backend}
-                    value="remote"
-                  /> Remote (API)</label
-                >
-              </div>
+            <div class="grid gap-2">
+              <Label>Backend</Label>
+              <RadioGroup.Root
+                bind:value={tempProfile.backend}
+                class="flex space-x-4"
+              >
+                <div class="flex items-center space-x-2">
+                  <RadioGroup.Item value="webgpu" id="backend-webgpu" />
+                  <Label for="backend-webgpu">Local (WebGPU)</Label>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <RadioGroup.Item value="wasm" id="backend-wasm" />
+                  <Label for="backend-wasm">Local (WASM)</Label>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <RadioGroup.Item value="remote" id="backend-remote" />
+                  <Label for="backend-remote">Remote (API)</Label>
+                </div>
+              </RadioGroup.Root>
             </div>
 
             {#if tempProfile.backend === "webgpu" || tempProfile.backend === "wasm"}
-              <div class="form-group">
-                <label>Model ID (HuggingFace)</label>
-                <input
-                  type="text"
-                  bind:value={tempProfile.model_id}
+              <div class="grid gap-2">
+                <Label for="model-id">Model ID (HuggingFace)</Label>
+                <Input
+                  id="model-id"
                   list="common-models"
+                  bind:value={tempProfile.model_id}
                 />
                 <datalist id="common-models">
-                  <option value="onnx-community/whisper-tiny"> </option><option
-                    value="onnx-community/whisper-base"
-                  >
-                  </option><option value="onnx-community/whisper-small">
-                  </option></datalist
-                >
+                  <option value="onnx-community/whisper-tiny"></option>
+                  <option value="onnx-community/whisper-base"></option>
+                  <option value="onnx-community/whisper-small"></option>
+                </datalist>
               </div>
-              <div class="form-group">
-                <label>Quantization</label>
-                <select bind:value={tempProfile.quantization}>
-                  <option value="q4">Q4 (Default)</option>
-                  <option value="int8">Int8</option>
-                  <option value="fp32">FP32</option>
-                </select>
+              <div class="grid gap-2">
+                <Label>Quantization</Label>
+                <Select.Root
+                  selected={{
+                    value: tempProfile.quantization,
+                    label:
+                      tempProfile.quantization === "q4"
+                        ? "Q4 (Default)"
+                        : tempProfile.quantization === "int8"
+                          ? "Int8"
+                          : "FP32",
+                  }}
+                  onSelectedChange={(v) => (tempProfile.quantization = v.value)}
+                >
+                  <Select.Trigger class="w-full">
+                    {tempProfile.quantization
+                      ? tempProfile.quantization === "q4"
+                        ? "Q4 (Default)"
+                        : tempProfile.quantization === "int8"
+                          ? "Int8"
+                          : "FP32"
+                      : "Select quantization"}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="q4" label="Q4 (Default)"
+                      >Q4 (Default)</Select.Item
+                    >
+                    <Select.Item value="int8" label="Int8">Int8</Select.Item>
+                    <Select.Item value="fp32" label="FP32">FP32</Select.Item>
+                  </Select.Content>
+                </Select.Root>
               </div>
             {:else}
-              <div class="form-group">
-                <label>API Endpoint</label>
-                <input
+              <div class="grid gap-2">
+                <Label for="api-endpoint">API Endpoint</Label>
+                <Input
+                  id="api-endpoint"
                   type="text"
                   bind:value={tempProfile.remote_endpoint}
                   placeholder="http://localhost:9000/v1/audio/transcriptions"
                 />
               </div>
-              <div class="form-group">
-                <label>API Key (Optional)</label>
-                <input type="password" bind:value={tempProfile.remote_key} />
+              <div class="grid gap-2">
+                <Label for="api-key">API Key (Optional)</Label>
+                <Input
+                  id="api-key"
+                  type="password"
+                  bind:value={tempProfile.remote_key}
+                />
               </div>
             {/if}
+          </Card.Content>
+          <Card.Footer class="flex justify-end gap-2">
+            <Button variant="outline" onclick={cancelEdit}>Cancel</Button>
+            <Button onclick={saveProfile}>Save Profile</Button>
+          </Card.Footer>
+        </Card.Root>
+      {/if}
+    </Tabs.Content>
 
-            <div class="editor-actions">
-              <button class="btn-primary" on:click={saveProfile}
-                >Save Profile</button
-              >
-              <button on:click={cancelEdit}>Cancel</button>
-            </div>
-          </div>
-        {/if}
-      </div>
-    {:else if activeTab === "hub"}
-      <div class="hub-section">
-        <h2>Model Hub</h2>
+    <Tabs.Content value="hub">
+      <div class="space-y-4">
+        <h2 class="text-xl font-semibold">Model Hub</h2>
         {#if hubLoading}
-          <p>Loading models...</p>
+          <div class="flex items-center justify-center p-8">
+            <p class="text-muted-foreground">Loading models...</p>
+          </div>
         {:else}
-          <div class="hub-grid">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {#each hubModels as model}
               {#if model.type !== "remote"}
                 <ModelHubCard
                   {model}
-                  on:create={() => createProfileFromModel(model)}
+                  onCreate={() => createProfileFromModel(model)}
                 />
               {/if}
             {/each}
           </div>
         {/if}
       </div>
-    {:else if activeTab === "settings"}
-      <div class="settings-section">
-        <div class="settings-group">
-          <h2>Translation</h2>
-          <div class="setting-item">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
+    </Tabs.Content>
+
+    <Tabs.Content value="settings">
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Settings</Card.Title>
+        </Card.Header>
+        <Card.Content class="space-y-6">
+          <div class="space-y-4">
+            <h3 class="text-lg font-medium">Translation</h3>
+            <div class="flex items-center justify-between">
+              <Label for="translation-mode">Enable Real-time Translation</Label>
+              <Switch
+                id="translation-mode"
                 bind:checked={translationEnabled}
-                on:change={saveSettings}
+                onCheckedChange={saveSettings}
               />
-              Enable Real-time Translation
-            </label>
-          </div>
-          {#if translationEnabled}
-            <div class="setting-item">
-              <label>Target Language</label>
-              <select bind:value={targetLanguage} on:change={saveSettings}>
-                {#each TARGET_LANGUAGES as lang}
-                  <option value={lang.code}>{lang.name}</option>
-                {/each}
-              </select>
             </div>
-          {/if}
-        </div>
+            {#if translationEnabled}
+              <div class="grid gap-2">
+                <Label>Target Language</Label>
+                <Select.Root
+                  selected={{
+                    value: targetLanguage,
+                    label: getTargetLanguageName(targetLanguage),
+                  }}
+                  onSelectedChange={(v) => {
+                    targetLanguage = v.value;
+                    saveSettings();
+                  }}
+                >
+                  <Select.Trigger class="w-full">
+                    {getTargetLanguageName(targetLanguage)}
+                  </Select.Trigger>
+                  <Select.Content class="max-h-[200px] overflow-y-auto">
+                    {#each TARGET_LANGUAGES as lang}
+                      <Select.Item value={lang.code} label={lang.name}
+                        >{lang.name}</Select.Item
+                      >
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+            {/if}
+          </div>
 
-        <div class="settings-group">
-          <h2>Recognition</h2>
-          <div class="setting-item">
-            <label>Source Language</label>
-            <select bind:value={language} on:change={saveSettings}>
-              {#each LANGUAGES as lang}
-                <option value={lang.code}>{lang.name}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-
-        <div class="settings-group">
-          <h2>Appearance</h2>
-          <div class="setting-item">
-            <label>Subtitle Size: {fontSize}px</label>
-            <input
-              type="range"
-              min="16"
-              max="48"
-              bind:value={fontSize}
-              on:change={saveSettings}
-            />
-          </div>
-          <div class="setting-item">
-            <label>History Lines: {historyLines}</label>
-            <input
-              type="number"
-              min="0"
-              max="5"
-              bind:value={historyLines}
-              on:change={saveSettings}
-            />
-          </div>
-        </div>
-
-        <div class="settings-group danger-zone">
-          <h2>Debug</h2>
-          <div class="actions">
-            <button class="btn-clear" on:click={clearCache}>Clear Cache</button>
-            <button on:click={listModels}>Check Cache</button>
-          </div>
-          {#if installedModels.length > 0}
-            <div class="cache-list">
-              <ul>
-                {#each installedModels as m}<li>{m}</li>{/each}
-              </ul>
+          <div class="space-y-4">
+            <h3 class="text-lg font-medium">Recognition</h3>
+            <div class="grid gap-2">
+              <Label>Source Language</Label>
+              <Select.Root
+                selected={{ value: language, label: getLanguageName(language) }}
+                onSelectedChange={(v) => {
+                  language = v.value;
+                  saveSettings();
+                }}
+              >
+                <Select.Trigger class="w-full">
+                  {getLanguageName(language)}
+                </Select.Trigger>
+                <Select.Content class="max-h-[200px] overflow-y-auto">
+                  {#each LANGUAGES as lang}
+                    <Select.Item value={lang.code} label={lang.name}
+                      >{lang.name}</Select.Item
+                    >
+                  {/each}
+                </Select.Content>
+              </Select.Root>
             </div>
-          {/if}
-        </div>
-      </div>
-    {/if}
-  </div>
+          </div>
+
+          <div class="space-y-4">
+            <h3 class="text-lg font-medium">Appearance</h3>
+            <div class="grid gap-2">
+              <div class="flex justify-between">
+                <Label>Subtitle Size</Label>
+                <span class="text-sm text-muted-foreground">{fontSize}px</span>
+              </div>
+              <Slider
+                value={[fontSize]}
+                min={16}
+                max={48}
+                step={1}
+                onValueChange={(v) => {
+                  fontSize = v[0];
+                  saveSettings();
+                }}
+              />
+            </div>
+            <div class="grid gap-2">
+              <Label for="history-lines">History Lines</Label>
+              <Input
+                id="history-lines"
+                type="number"
+                min="0"
+                max="5"
+                bind:value={historyLines}
+                onchange={saveSettings}
+              />
+            </div>
+          </div>
+
+          <div class="space-y-4 border-t pt-4">
+            <h3 class="text-lg font-medium text-destructive">Debug</h3>
+            <div class="flex gap-2">
+              <Button variant="destructive" size="sm" onclick={clearCache}
+                >Clear Cache</Button
+              >
+              <Button variant="outline" size="sm" onclick={listModels}
+                >Check Cache</Button
+              >
+            </div>
+            {#if installedModels.length > 0}
+              <div
+                class="bg-muted p-2 rounded text-sm font-mono overflow-auto max-h-[100px]"
+              >
+                <ul>
+                  {#each installedModels as m}<li>{m}</li>{/each}
+                </ul>
+              </div>
+            {/if}
+          </div>
+        </Card.Content>
+      </Card.Root>
+    </Tabs.Content>
+  </Tabs.Root>
 </main>
-
-<style>
-  :global(body) {
-    font-family:
-      system-ui,
-      -apple-system,
-      sans-serif;
-    padding: 0;
-    margin: 0;
-    background: #f9fafb;
-    color: #1f2937;
-  }
-
-  main {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-
-  /* Header */
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #111827;
-  }
-  .status-msg {
-    color: #059669;
-    font-weight: 500;
-  }
-
-  /* Tabs */
-  .tabs {
-    display: flex;
-    gap: 10px;
-    border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 20px;
-  }
-  .tab {
-    padding: 10px 20px;
-    background: none;
-    border: none;
-    font-size: 1rem;
-    color: #6b7280;
-    cursor: pointer;
-    font-weight: 500;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-  }
-  .tab.active {
-    color: #2563eb;
-    border-bottom-color: #2563eb;
-  }
-  .tab:hover {
-    color: #374151;
-  }
-
-  /* Layouts */
-  .profile-grid,
-  .hub-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 16px;
-  }
-
-  .profile-card {
-    background: white;
-    padding: 16px;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e5e7eb;
-  }
-
-  .profile-card h3 {
-    margin: 0 0 8px 0;
-    font-size: 1.1rem;
-  }
-  .profile-details {
-    margin-bottom: 12px;
-    font-size: 0.9rem;
-    color: #4b5563;
-  }
-  .model-name {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    font-weight: bold;
-    margin-right: 6px;
-  }
-  .badge.webgpu {
-    background: #dbeafe;
-    color: #1e40af;
-  }
-  .badge.wasm {
-    background: #e0e7ff;
-    color: #3730a3;
-  }
-  .badge.remote {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-
-  .profile-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-
-  /* Forms */
-  .editor-section,
-  .settings-section {
-    background: white;
-    padding: 24px;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  .form-group,
-  .setting-item {
-    margin-bottom: 16px;
-  }
-
-  label {
-    display: block;
-    margin-bottom: 6px;
-    font-weight: 500;
-    color: #374151;
-  }
-  input[type="text"],
-  input[type="password"],
-  input[type="number"],
-  select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 1rem;
-    box-sizing: border-box;
-  }
-
-  .radio-group label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-right: 16px;
-    font-weight: normal;
-  }
-
-  .editor-actions {
-    margin-top: 24px;
-    display: flex;
-    gap: 12px;
-  }
-
-  /* Buttons */
-  button {
-    padding: 8px 16px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    background: white;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  button:hover {
-    background: #f3f4f6;
-  }
-
-  .btn-primary {
-    background: #2563eb;
-    color: white;
-    border: none;
-  }
-  .btn-primary:hover {
-    background: #1d4ed8;
-  }
-
-  .btn-danger {
-    color: #dc2626;
-    border-color: #fca5a5;
-  }
-  .btn-danger:hover {
-    background: #fee2e2;
-  }
-
-  .link-btn {
-    text-decoration: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    color: #4b5563;
-    border: 1px solid #d1d5db;
-    font-size: 0.9rem;
-    text-align: center;
-  }
-  .link-btn:hover {
-    background: #f3f4f6;
-  }
-
-  /* Settings Groups */
-  .settings-group {
-    margin-bottom: 30px;
-  }
-  .settings-group h2 {
-    font-size: 1.1rem;
-    border-bottom: 1px solid #e5e7eb;
-    padding-bottom: 8px;
-    margin-bottom: 16px;
-  }
-
-  .danger-zone h2 {
-    color: #dc2626;
-    border-color: #fca5a5;
-  }
-  .btn-clear {
-    background: #fee2e2;
-    color: #991b1b;
-    border: none;
-  }
-  .cache-list {
-    margin-top: 10px;
-    background: #f3f4f6;
-    padding: 10px;
-    border-radius: 6px;
-    font-family: monospace;
-    font-size: 0.9rem;
-  }
-</style>

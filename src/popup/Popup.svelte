@@ -1,6 +1,14 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
+  import { ModeWatcher } from "mode-watcher";
+
+  // Shadcn Components
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Select from "$lib/components/ui/select/index.js";
+  import { Progress } from "$lib/components/ui/progress/index.js";
+  import { Settings } from "lucide-svelte"; // Icon
 
   // State
   let isRecording = false;
@@ -96,7 +104,8 @@
     }
   }
 
-  function onProfileChange() {
+  function onProfileChange(value) {
+    selectedProfileId = value;
     // Save selection
     chrome.storage.sync.set({ activeProfileId: selectedProfileId });
   }
@@ -124,20 +133,12 @@
         isLoading = true; // Set loading state
         pendingTabId = tab.id; // Store tab ID for later
 
-        // We pass the profile configuration directly in the start request
-        // This overrides whatever the background might load from default storage
-        // Actually, background loads from storage too.
-        // Best practice: Save as 'active settings' in storage before starting?
-        // OR pass it in the message. Let's pass in message.
-
         chrome.runtime.sendMessage({
           type: "REQUEST_START",
           tabId: tab.id,
           profile: profile, // Pass full profile
         });
 
-        // Don't set recording state immediately
-        // setRecordingState(true);
         autoCloseOnReady = true;
       } else {
         console.error("No active tab found!");
@@ -190,214 +191,92 @@
       window.open(chrome.runtime.getURL("options.html"));
     }
   }
+
+  // Helper
+  $: selectedProfileName =
+    profiles.find((p) => p.id === selectedProfileId)?.name || "Select Profile";
 </script>
 
-<main>
-  <h1>
-    HoneyWhisper
-    <span class="status-badge {isRecording ? 'status-recording' : ''}">
+<ModeWatcher />
+
+<main class="w-[320px] p-4 bg-background text-foreground">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-lg font-bold">HoneyWhisper</h1>
+    <Badge variant={isRecording ? "destructive" : "secondary"}>
       {isLoading ? "Initializing..." : isRecording ? "Recording" : "Ready"}
-    </span>
-  </h1>
+    </Badge>
+  </div>
 
   {#if showActiveTabInfo}
-    <div class="active-tab-info">
-      Capturing: <button class="btn-link" on:click={activateTab}
-        >{activeTabTitle}</button
+    <div class="mb-4 p-2 bg-muted rounded text-sm flex items-center gap-2">
+      <span class="text-muted-foreground">Capturing:</span>
+      <button
+        class="text-primary hover:underline font-medium truncate max-w-[180px]"
+        onclick={activateTab}
       >
+        {activeTabTitle}
+      </button>
     </div>
   {/if}
 
   {#if showProgress}
-    <div class="progress-container">
-      <div class="progress-header">
-        <span>{progressText}</span>
+    <div class="mb-4 space-y-2">
+      <div class="flex justify-between text-xs text-muted-foreground">
+        <span class={progressStatus === "error" ? "text-destructive" : ""}
+          >{progressText}</span
+        >
         <span>{progressPercent}%</span>
       </div>
-      <div class="progress-bar-bg">
-        <div
-          class="progress-bar-fill"
-          style="width: {progressPercent}%; background: {progressStatus ===
-          'error'
-            ? '#ef4444'
-            : '#3b82f6'}"
-        ></div>
-      </div>
+      <Progress value={progressPercent} class="h-2" />
     </div>
   {/if}
 
-  <div class="control-group">
+  <div class="space-y-4">
     {#if !isRecording}
-      <label for="profileSelect">Profile</label>
-      <div class="select-row">
-        <select
-          id="profileSelect"
-          bind:value={selectedProfileId}
-          on:change={onProfileChange}
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <Select.Root
+            selected={{ value: selectedProfileId, label: selectedProfileName }}
+            onSelectedChange={(v) => onProfileChange(v.value)}
+            disabled={isLoading}
+          >
+            <Select.Trigger class="w-full">
+              <span class="truncate block w-full text-left"
+                >{selectedProfileName || "Select Profile"}</span
+              >
+            </Select.Trigger>
+            <Select.Content>
+              {#each profiles as profile}
+                <Select.Item value={profile.id} label={profile.name}
+                  >{profile.name}</Select.Item
+                >
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onclick={openOptions}
           disabled={isLoading}
-        >
-          {#each profiles as profile}
-            <option value={profile.id}>{profile.name}</option>
-          {/each}
-        </select>
-        <button
-          class="btn-icon"
           title="Manage Profiles"
-          on:click={openOptions}
-          disabled={isLoading}>⚙️</button
         >
+          <Settings class="h-4 w-4" />
+        </Button>
       </div>
     {/if}
-  </div>
 
-  <button
-    class="btn-main {isRecording ? 'btn-stop' : 'btn-start'}"
-    on:click={toggleRecording}
-    disabled={isLoading}
-  >
-    <span
-      >{isLoading
+    <Button
+      variant={isRecording ? "destructive" : "default"}
+      class="w-full h-12 text-lg font-semibold"
+      onclick={toggleRecording}
+      disabled={isLoading}
+    >
+      {isLoading
         ? "Starting..."
         : isRecording
           ? "Stop Captioning"
-          : "Start Captioning"}</span
-    >
-  </button>
+          : "Start Captioning"}
+    </Button>
+  </div>
 </main>
-
-<style>
-  :global(body) {
-    font-family: system-ui, sans-serif;
-    padding: 16px;
-    width: 280px;
-    margin: 0;
-  }
-
-  h1 {
-    font-size: 1.25em;
-    margin: 0 0 16px 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .control-group {
-    margin-bottom: 12px;
-  }
-
-  label {
-    font-size: 0.85em;
-    color: #6b7280;
-    margin-bottom: 4px;
-    display: block;
-  }
-
-  .select-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  select {
-    flex: 1;
-    padding: 6px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-  }
-
-  .btn-icon {
-    background: none;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    cursor: pointer;
-    padding: 0 8px;
-  }
-  .btn-icon:hover {
-    background: #f3f4f6;
-  }
-
-  .btn-main {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    font-size: 1.1em;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 12px;
-  }
-
-  .btn-start {
-    background: #3b82f6;
-    color: white;
-  }
-  .btn-start:hover {
-    background: #2563eb;
-  }
-
-  .btn-stop {
-    background: #ef4444;
-    color: white;
-  }
-  .btn-stop:hover {
-    background: #dc2626;
-  }
-
-  .status-badge {
-    font-size: 0.8em;
-    padding: 4px 8px;
-    background: #eee;
-    border-radius: 12px;
-    font-weight: normal;
-  }
-  .status-recording {
-    background: #fecaca;
-    color: #dc2626;
-  }
-
-  .active-tab-info {
-    margin-bottom: 12px;
-    font-size: 0.9em;
-    padding: 8px;
-    background: #f3f4f6;
-    border-radius: 6px;
-  }
-
-  .active-tab-info .btn-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: #2563eb;
-    text-decoration: none;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .active-tab-info .btn-link:hover {
-    text-decoration: underline;
-  }
-
-  .progress-container {
-    margin-bottom: 16px;
-  }
-  .progress-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.85em;
-    margin-bottom: 4px;
-    color: #555;
-  }
-  .progress-bar-bg {
-    background: #e5e7eb;
-    height: 6px;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .progress-bar-fill {
-    height: 100%;
-    transition: width 0.2s;
-  }
-</style>
