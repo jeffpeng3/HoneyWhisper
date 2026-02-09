@@ -199,7 +199,7 @@
 
 <ModeWatcher />
 
-<main class="w-[320px] p-4 bg-background text-foreground">
+<main class="w-[320px] min-h-[300px] p-4 bg-background text-foreground">
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-lg font-bold">HoneyWhisper</h1>
     <Badge variant={isRecording ? "destructive" : "secondary"}>
@@ -233,37 +233,24 @@
 
   <div class="space-y-4">
     {#if !isRecording}
-      <div class="flex gap-2">
-        <div class="flex-1">
-          <Select.Root
-            selected={{ value: selectedProfileId, label: selectedProfileName }}
-            onSelectedChange={(v) => onProfileChange(v.value)}
-            disabled={isLoading}
+      <Select.Root
+        selected={{ value: selectedProfileId, label: selectedProfileName }}
+        onSelectedChange={(v) => onProfileChange(v.value)}
+        disabled={isLoading}
+      >
+        <Select.Trigger class="w-full">
+          <span class="truncate block w-full text-left"
+            >{selectedProfileName || "Select Profile"}</span
           >
-            <Select.Trigger class="w-full">
-              <span class="truncate block w-full text-left"
-                >{selectedProfileName || "Select Profile"}</span
-              >
-            </Select.Trigger>
-            <Select.Content>
-              {#each profiles as profile}
-                <Select.Item value={profile.id} label={profile.name}
-                  >{profile.name}</Select.Item
-                >
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-        <Button
-          variant="outline"
-          size="icon"
-          onclick={openOptions}
-          disabled={isLoading}
-          title="Manage Profiles"
-        >
-          <Settings class="h-4 w-4" />
-        </Button>
-      </div>
+        </Select.Trigger>
+        <Select.Content class="max-h-[180px]">
+          {#each profiles as profile}
+            <Select.Item value={profile.id} label={profile.name}
+              >{profile.name}</Select.Item
+            >
+          {/each}
+        </Select.Content>
+      </Select.Root>
     {/if}
 
     <Button
@@ -278,5 +265,18 @@
           ? "Stop Captioning"
           : "Start Captioning"}
     </Button>
+
+    {#if !isRecording}
+      <Button
+        variant="ghost"
+        class="w-full"
+        onclick={openOptions}
+        disabled={isLoading}
+        title="Manage Profiles"
+      >
+        <Settings class="h-4 w-4 mr-2" />
+        Settings
+      </Button>
+    {/if}
   </div>
 </main>

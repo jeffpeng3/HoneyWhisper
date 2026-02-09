@@ -29,6 +29,7 @@ let pipelineConfig = {
     },
     translation: {
         enabled: false,
+        service: 'google',
         target: 'zh-TW'
     }
 };
@@ -170,8 +171,11 @@ async function initPipeline(config) {
     }
 
     // 2. Initialize Translator
-    if (!translatorService) {
-        translatorService = BaseTranslator.create('google');
+    // Check if service changed or not initialized
+    const targetService = config.translation.service;
+    if (!translatorService || translatorService.constructor.name.toLowerCase() !== targetService) {
+        translatorService = BaseTranslator.create(targetService);
+        console.log(`Translator Initialized: ${targetService}`);
     }
 }
 
@@ -346,6 +350,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
 
                 if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
+                if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
                 if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
 
                 startRecording(message.data);
@@ -364,6 +369,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
 
                     if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
+                    if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
                     if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
                 }
             } else if (message.type === 'CLEAR_CACHE') {

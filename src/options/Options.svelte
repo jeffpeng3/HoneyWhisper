@@ -35,6 +35,7 @@
   let historyLines = 1;
   let fontSize = 24;
   let translationEnabled = false;
+  let translationService = "google";
   let targetLanguage = "zh-TW";
 
   // Debug
@@ -53,7 +54,7 @@
     { code: "fr", name: "French" },
     { code: "de", name: "German" },
     { code: "ko", name: "Korean" },
-    { code: "auto", name: "Auto Detect" },
+    { code: "auto", name: "Auto Detect(不穩定)" },
   ];
 
   const TARGET_LANGUAGES = [
@@ -65,6 +66,11 @@
     { code: "es", name: "Spanish" },
     { code: "fr", name: "French" },
     { code: "de", name: "German" },
+  ];
+
+  const TRANSLATION_SERVICES = [
+    { id: "google", name: "Google Translate" },
+    // { id: "mock", name: "Mock Service" }, // For testing
   ];
 
   onMount(async () => {
@@ -82,6 +88,7 @@
         fontSize: "24",
         historyLines: 1,
         translationEnabled: false,
+        translationService: "google",
         targetLanguage: "zh-TW",
       },
       (items) => {
@@ -90,6 +97,7 @@
         fontSize = parseInt(items.fontSize);
         historyLines = parseInt(items.historyLines);
         translationEnabled = items.translationEnabled;
+        translationService = items.translationService || "google";
         targetLanguage = items.targetLanguage;
       },
     );
@@ -128,6 +136,7 @@
         fontSize: String(fontSize),
         historyLines,
         translationEnabled,
+        translationService,
         targetLanguage,
       },
       () => {
@@ -144,7 +153,12 @@
           .sendMessage({
             target: "offscreen",
             type: "UPDATE_SETTINGS",
-            settings: { translationEnabled, targetLanguage, language },
+            settings: {
+              translationEnabled,
+              translationService,
+              targetLanguage,
+              language,
+            },
           })
           .catch(() => {});
       },
@@ -490,6 +504,36 @@
               />
             </div>
             {#if translationEnabled}
+              <div class="grid gap-2">
+                <Label>Service</Label>
+                <Select.Root
+                  selected={{
+                    value: translationService,
+                    label:
+                      TRANSLATION_SERVICES.find(
+                        (s) => s.id === translationService,
+                      )?.name || translationService,
+                  }}
+                  onSelectedChange={(v) => {
+                    translationService = v.value;
+                    saveSettings();
+                  }}
+                >
+                  <Select.Trigger class="w-full">
+                    {TRANSLATION_SERVICES.find(
+                      (s) => s.id === translationService,
+                    )?.name || translationService}
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each TRANSLATION_SERVICES as service}
+                      <Select.Item value={service.id} label={service.name}
+                        >{service.name}</Select.Item
+                      >
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+
               <div class="grid gap-2">
                 <Label>Target Language</Label>
                 <Select.Root
