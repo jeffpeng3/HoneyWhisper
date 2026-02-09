@@ -4,6 +4,7 @@
   import ModelHubCard from "./ModelHubCard.svelte";
   import { ModeWatcher } from "mode-watcher";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
+  import { checkUpdate } from "../lib/version.js";
 
   // Shadcn UI Components
   import { Button } from "$lib/components/ui/button/index.js";
@@ -18,7 +19,7 @@
   import * as RadioGroup from "$lib/components/ui/radio-group/index.js";
 
   // Tabs
-  let activeTab = "profiles"; // profiles, hub, settings
+  let activeTab = "settings"; // profiles, hub, settings
 
   // Profiles State
   let profiles = [];
@@ -39,6 +40,10 @@
   // Debug
   let installedModels = [];
   let statusMessage = "";
+
+  // Update Check State
+  let updateStatus = "idle"; // idle, checking, available, uptodate, error
+  let updateData = null;
 
   const LANGUAGES = [
     { code: "en", name: "English" },
@@ -65,6 +70,7 @@
   onMount(async () => {
     loadSettings();
     loadHubModels();
+    handleCheckUpdate();
   });
 
   function loadSettings() {
@@ -247,6 +253,21 @@
   }
   function getTargetLanguageName(code) {
     return TARGET_LANGUAGES.find((l) => l.code === code)?.name || code;
+  }
+
+  async function handleCheckUpdate() {
+    updateStatus = "checking";
+    const result = await checkUpdate();
+    if (result.error) {
+      updateStatus = "error";
+      showStatus("Error checking for update");
+    } else if (result.hasUpdate) {
+      updateStatus = "available";
+      updateData = result;
+    } else {
+      updateStatus = "uptodate";
+      updateData = result;
+    }
   }
 </script>
 
@@ -550,6 +571,55 @@
                 onchange={saveSettings}
               />
             </div>
+          </div>
+
+          <div class="space-y-4">
+            <h3 class="text-lg font-medium">Updates</h3>
+            <div class="flex items-center justify-between">
+              <div class="flex flex-col">
+                <Label>Check for Updates</Label>
+                <span class="text-xs text-muted-foreground"
+                  >Current Version: {chrome.runtime.getManifest().version}</span
+                >
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={handleCheckUpdate}
+                disabled={updateStatus === "checking"}
+              >
+                {updateStatus === "checking"
+                  ? "Checking..."
+                  : "Check for Update"}
+              </Button>
+            </div>
+            {#if updateStatus === "available"}
+              <div
+                class="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md border border-yellow-200 dark:border-yellow-900"
+              >
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-medium text-yellow-800 dark:text-yellow-200">
+                      Update Available: {updateData.latestVersion}
+                    </p>
+                    <a
+                      href={updateData.releaseUrl}
+                      target="_blank"
+                      class="text-sm underline text-yellow-700 dark:text-yellow-300"
+                      >View Release</a
+                    >
+                  </div>
+                </div>
+              </div>
+            {:else if updateStatus === "uptodate"}
+              <div class="text-sm text-green-600 dark:text-green-400">
+                You are using the latest version.
+              </div>
+            {:else if updateStatus === "error"}
+              <div class="text-sm text-destructive">
+                Failed to check for updates.
+              </div>
+            {/if}
           </div>
 
           <div class="space-y-4 border-t pt-4">

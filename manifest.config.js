@@ -17,6 +17,9 @@ export default defineManifest(async (env) => ({
         'scripting',
         'storage',
     ],
+    host_permissions: [
+        'https://api.github.com/*',
+    ],
     background: {
         service_worker: 'src/background/background.js',
         type: 'module',
