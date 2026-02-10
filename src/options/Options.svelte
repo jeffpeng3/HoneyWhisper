@@ -37,6 +37,7 @@
   let translationEnabled = false;
   let translationService = "google";
   let targetLanguage = "zh-TW";
+  let showOriginal = true;
 
   // Debug
   let installedModels = [];
@@ -90,6 +91,7 @@
         translationEnabled: false,
         translationService: "google",
         targetLanguage: "zh-TW",
+        showOriginal: true,
       },
       (items) => {
         profiles = items.profiles || DEFAULT_PROFILES;
@@ -99,6 +101,8 @@
         translationEnabled = items.translationEnabled;
         translationService = items.translationService || "google";
         targetLanguage = items.targetLanguage;
+        showOriginal =
+          items.showOriginal !== undefined ? items.showOriginal : true;
       },
     );
   }
@@ -138,6 +142,7 @@
         translationEnabled,
         translationService,
         targetLanguage,
+        showOriginal,
       },
       () => {
         showStatus("Settings Saved");
@@ -158,6 +163,7 @@
               translationService,
               targetLanguage,
               language,
+              showOriginal,
             },
           })
           .catch(() => {});
@@ -485,6 +491,15 @@
               />
             </div>
             {#if translationEnabled}
+              <div class="flex items-center justify-between ml-4">
+                <Label for="show-original">Show Original Text</Label>
+                <Switch
+                  id="show-original"
+                  bind:checked={showOriginal}
+                  onCheckedChange={saveSettings}
+                />
+              </div>
+
               <div class="grid gap-2">
                 <Label>Service</Label>
                 <Combobox

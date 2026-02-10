@@ -30,7 +30,8 @@ let pipelineConfig = {
     translation: {
         enabled: false,
         service: 'google',
-        target: 'zh-TW'
+        target: 'zh-TW',
+        showOriginal: true
     }
 };
 
@@ -206,17 +207,27 @@ async function generate(audio, isFinal = true) {
         console.log(`Transcribed: "${text}"`);
 
         // 2. Translate
+        let translatedText = null;
         if (text.length > 0 && pipelineConfig.translation.enabled) {
             // Source is pipelineConfig.asr.language (or auto), target is configured target
             try {
                 const translated = await translatorService.translate(text, pipelineConfig.asr.language, pipelineConfig.translation.target);
                 if (translated && translated !== text) {
                     console.log(`Translated: "${translated}"`);
-                    text = `${text} (${translated})`;
+                    translatedText = translated;
                 }
             } catch (translateErr) {
                 console.warn("Translation failed:", translateErr);
             }
+        }
+
+        // Apply "Show Original" logic
+        if (translatedText && pipelineConfig.translation.enabled && pipelineConfig.translation.showOriginal === false) {
+            // If we have a translation but "Show Original" is OFF:
+            // Swap the text so the main 'text' becomes the translation,
+            // and clear 'translatedText' so content.js treats it as a single line.
+            text = translatedText;
+            translatedText = null;
         }
 
         if (text.length > 0) {
@@ -224,6 +235,7 @@ async function generate(audio, isFinal = true) {
                 target: 'content',
                 type: 'SUBTITLE_UPDATE',
                 text: text,
+                translatedText: translatedText,
                 isFinal: isFinal
             }).catch((err) => { });
         }
@@ -355,6 +367,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
                 if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
                 if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
+                if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
 
                 startRecording(message.data);
             } else if (message.type === 'STOP_RECORDING') {
@@ -374,6 +387,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
                     if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
                     if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
+                    if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
                 }
             } else if (message.type === 'CLEAR_CACHE') {
                 try {

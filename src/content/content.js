@@ -136,7 +136,11 @@
 
                 if (el && currentEl) {
                     // Update Current
-                    currentEl.innerText = message.text;
+                    if (message.translatedText) {
+                        currentEl.innerHTML = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
+                    } else {
+                        currentEl.innerText = message.text;
+                    }
                     el.style.display = 'block';
 
                     // Finalize History
@@ -150,7 +154,11 @@
                             updateHistoryDisplay();
                         }
                         // Update pending text
-                        lastFinalText = message.text;
+                        if (message.translatedText) {
+                            lastFinalText = `${message.translatedText} <span style="font-size: 0.8em; opacity: 0.8;">(${message.text})</span>`;
+                        } else {
+                            lastFinalText = message.text;
+                        }
                     }
 
                     // Hide if empty

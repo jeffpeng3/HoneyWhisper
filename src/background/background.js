@@ -49,7 +49,8 @@ async function startCapture(tabId, profile = null) {
         const globalSettings = await chrome.storage.sync.get({
             language: 'en',
             translationEnabled: false,
-            targetLanguage: 'zh-TW'
+            targetLanguage: 'zh-TW',
+            showOriginal: true
         });
 
         settings = {
@@ -70,7 +71,8 @@ async function startCapture(tabId, profile = null) {
             remoteEndpoint: '',
             remoteKey: '',
             translationEnabled: false,
-            targetLanguage: 'zh-TW'
+            targetLanguage: 'zh-TW',
+            showOriginal: true
         });
     }
 
