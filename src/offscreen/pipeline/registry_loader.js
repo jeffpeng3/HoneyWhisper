@@ -2,5 +2,6 @@
 import "./ASR/LocalASR.js";
 import "./ASR/RemoteASR.js";
 import "./Translation/GoogleTranslator.js";
+import "./Translation/DeepLTranslator.js";
 
 console.log("Pipeline Services Registered");

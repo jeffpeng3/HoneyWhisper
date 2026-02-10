@@ -12,11 +12,11 @@
   import * as Card from "$lib/components/ui/card/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
   import { Label } from "$lib/components/ui/label/index.js";
-  import * as Select from "$lib/components/ui/select/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Switch } from "$lib/components/ui/switch/index.js";
   import { Slider } from "$lib/components/ui/slider/index.js";
   import * as RadioGroup from "$lib/components/ui/radio-group/index.js";
+  import Combobox from "$lib/components/ui/combobox/Combobox.svelte";
 
   // Tabs
   let activeTab = "settings"; // profiles, hub, settings
@@ -70,7 +70,7 @@
 
   const TRANSLATION_SERVICES = [
     { id: "google", name: "Google Translate" },
-    // { id: "mock", name: "Mock Service" }, // For testing
+    { id: "deepl", name: "DeepL" },
   ];
 
   onMount(async () => {
@@ -407,35 +407,16 @@
               </div>
               <div class="grid gap-2">
                 <Label>Quantization</Label>
-                <Select.Root
-                  selected={{
-                    value: tempProfile.quantization,
-                    label:
-                      tempProfile.quantization === "q4"
-                        ? "Q4 (Default)"
-                        : tempProfile.quantization === "int8"
-                          ? "Int8"
-                          : "FP32",
-                  }}
-                  onSelectedChange={(v) => (tempProfile.quantization = v.value)}
-                >
-                  <Select.Trigger class="w-full">
-                    {tempProfile.quantization
-                      ? tempProfile.quantization === "q4"
-                        ? "Q4 (Default)"
-                        : tempProfile.quantization === "int8"
-                          ? "Int8"
-                          : "FP32"
-                      : "Select quantization"}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="q4" label="Q4 (Default)"
-                      >Q4 (Default)</Select.Item
-                    >
-                    <Select.Item value="int8" label="Int8">Int8</Select.Item>
-                    <Select.Item value="fp32" label="FP32">FP32</Select.Item>
-                  </Select.Content>
-                </Select.Root>
+                <Combobox
+                  value={tempProfile.quantization}
+                  options={[
+                    { value: "q4", label: "Q4 (Default)" },
+                    { value: "int8", label: "Int8" },
+                    { value: "fp32", label: "FP32" },
+                  ]}
+                  placeholder="Select quantization"
+                  onSelect={(v) => (tempProfile.quantization = v)}
+                />
               </div>
             {:else}
               <div class="grid gap-2">
@@ -506,57 +487,35 @@
             {#if translationEnabled}
               <div class="grid gap-2">
                 <Label>Service</Label>
-                <Select.Root
-                  selected={{
-                    value: translationService,
-                    label:
-                      TRANSLATION_SERVICES.find(
-                        (s) => s.id === translationService,
-                      )?.name || translationService,
-                  }}
-                  onSelectedChange={(v) => {
-                    translationService = v.value;
+                <Combobox
+                  value={translationService}
+                  options={TRANSLATION_SERVICES.map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                  }))}
+                  onSelect={(v) => {
+                    translationService = v;
                     saveSettings();
                   }}
-                >
-                  <Select.Trigger class="w-full">
-                    {TRANSLATION_SERVICES.find(
-                      (s) => s.id === translationService,
-                    )?.name || translationService}
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each TRANSLATION_SERVICES as service}
-                      <Select.Item value={service.id} label={service.name}
-                        >{service.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+                  class="w-full"
+                />
               </div>
 
               <div class="grid gap-2">
                 <Label>Target Language</Label>
-                <Select.Root
-                  selected={{
-                    value: targetLanguage,
-                    label: getTargetLanguageName(targetLanguage),
-                  }}
-                  onSelectedChange={(v) => {
-                    targetLanguage = v.value;
+                <Combobox
+                  value={targetLanguage}
+                  options={TARGET_LANGUAGES.map((l) => ({
+                    value: l.code,
+                    label: l.name,
+                  }))}
+                  onSelect={(v) => {
+                    targetLanguage = v;
                     saveSettings();
                   }}
-                >
-                  <Select.Trigger class="w-full">
-                    {getTargetLanguageName(targetLanguage)}
-                  </Select.Trigger>
-                  <Select.Content class="max-h-[200px] overflow-y-auto">
-                    {#each TARGET_LANGUAGES as lang}
-                      <Select.Item value={lang.code} label={lang.name}
-                        >{lang.name}</Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+                  searchable={true}
+                  class="w-full"
+                />
               </div>
             {/if}
           </div>
@@ -565,24 +524,19 @@
             <h3 class="text-lg font-medium">Recognition</h3>
             <div class="grid gap-2">
               <Label>Source Language</Label>
-              <Select.Root
-                selected={{ value: language, label: getLanguageName(language) }}
-                onSelectedChange={(v) => {
-                  language = v.value;
+              <Combobox
+                value={language}
+                options={LANGUAGES.map((l) => ({
+                  value: l.code,
+                  label: l.name,
+                }))}
+                onSelect={(v) => {
+                  language = v;
                   saveSettings();
                 }}
-              >
-                <Select.Trigger class="w-full">
-                  {getLanguageName(language)}
-                </Select.Trigger>
-                <Select.Content class="max-h-[200px] overflow-y-auto">
-                  {#each LANGUAGES as lang}
-                    <Select.Item value={lang.code} label={lang.name}
-                      >{lang.name}</Select.Item
-                    >
-                  {/each}
-                </Select.Content>
-              </Select.Root>
+                searchable={true}
+                class="w-full"
+              />
             </div>
           </div>
 

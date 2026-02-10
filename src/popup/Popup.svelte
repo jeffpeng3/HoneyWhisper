@@ -6,7 +6,7 @@
   // Shadcn Components
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
-  import * as Select from "$lib/components/ui/select/index.js";
+  import Combobox from "$lib/components/ui/combobox/Combobox.svelte";
   import { Progress } from "$lib/components/ui/progress/index.js";
   import { Settings } from "lucide-svelte"; // Icon
 
@@ -190,6 +190,7 @@
     } else {
       window.open(chrome.runtime.getURL("options.html"));
     }
+    window.close();
   }
 
   // Helper
@@ -233,24 +234,14 @@
 
   <div class="space-y-4">
     {#if !isRecording}
-      <Select.Root
-        selected={{ value: selectedProfileId, label: selectedProfileName }}
-        onSelectedChange={(v) => onProfileChange(v.value)}
+      <Combobox
+        value={selectedProfileId}
+        options={profiles.map((p) => ({ value: p.id, label: p.name }))}
+        placeholder={selectedProfileName || "Select Profile"}
+        onSelect={(v) => onProfileChange(v)}
         disabled={isLoading}
-      >
-        <Select.Trigger class="w-full">
-          <span class="truncate block w-full text-left"
-            >{selectedProfileName || "Select Profile"}</span
-          >
-        </Select.Trigger>
-        <Select.Content class="max-h-[180px]">
-          {#each profiles as profile}
-            <Select.Item value={profile.id} label={profile.name}
-              >{profile.name}</Select.Item
-            >
-          {/each}
-        </Select.Content>
-      </Select.Root>
+        class="w-full"
+      />
     {/if}
 
     <Button

@@ -41,7 +41,9 @@
         aria-expanded={open}
         {...restProps}
     >
-        {options.find((f) => f.value === value)?.label ?? placeholder}
+        <span class="truncate">
+            {options.find((f) => f.value === value)?.label ?? placeholder}
+        </span>
         <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
     </Popover.Trigger>
     <Popover.Content class="w-[--bits-popover-anchor-width] p-0">
@@ -49,7 +51,7 @@
             {#if searchable}
                 <Command.Input {placeholder} />
             {/if}
-            <Command.List>
+            <Command.List class="max-h-[180px] overflow-y-auto">
                 <Command.Empty>{emptyText}</Command.Empty>
                 <Command.Group>
                     {#each options as option}
