@@ -96,6 +96,7 @@ async function stopCapture() {
     isRecording = false;
     currentTabId = null;
     setIcon(false);
+    chrome.action.setBadgeText({ text: '' });
 
     // Close offscreen to release WebGPU resources
     try {
@@ -136,6 +137,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         else if (message.type === 'RECORDING_STARTED') {
             setIcon(true);
+        }
+        else if (message.type === 'VAD_STATUS') {
+            if (message.status === 'ACTIVE') {
+                chrome.action.setBadgeText({ text: ' ' });
+                chrome.action.setBadgeBackgroundColor({ color: '#ff7474ff' });
+            } else {
+                chrome.action.setBadgeText({ text: '' });
+            }
         }
         else if (message.type === 'GET_STATE') {
             sendResponse({ isRecording, currentTabId });

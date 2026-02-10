@@ -277,14 +277,17 @@ async function startRecording(streamId) {
             model: 'v5',
             onSpeechStart: () => {
                 console.log("VAD: Speech Start");
+                chrome.runtime.sendMessage({ type: 'VAD_STATUS', status: 'ACTIVE' }).catch(() => { });
             },
             onSpeechEnd: (audio) => {
                 const lenSec = audio.length / 16000;
                 console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
+                chrome.runtime.sendMessage({ type: 'VAD_STATUS', status: 'INACTIVE' }).catch(() => { });
                 generate(audio, true);
             },
             onVADMisfire: () => {
                 console.log("VAD: Misfire");
+                chrome.runtime.sendMessage({ type: 'VAD_STATUS', status: 'INACTIVE' }).catch(() => { });
             }
         });
 
