@@ -22,5 +22,9 @@
     {
         "id": "onnx-community/whisper-large-v3-turbo",
         "name": "Large v3 Turbo (Best, ~6GB VRAM)"
+    },
+    {
+        "id": "onnx-community/moonshine-base-ja-ONNX",
+        "name": "moonshine-base-ja"
     }
 ]
