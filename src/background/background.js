@@ -87,18 +87,25 @@ async function startCapture(tabId, profile = null) {
 }
 
 async function stopCapture() {
-    try {
-        chrome.runtime.sendMessage({
-            type: 'STOP_RECORDING',
-            target: 'offscreen'
-        });
-    } catch (e) {
-        // Ignore sending error if offscreen is gone
-    }
+    const tabIdToClear = currentTabId; // Capture current ID before clearing
     isRecording = false;
     currentTabId = null;
     setIcon(false);
     chrome.action.setBadgeText({ text: '' });
+
+    // Notify content to remove overlay from the specific tab
+    if (tabIdToClear) {
+        try {
+            chrome.tabs.sendMessage(tabIdToClear, {
+                target: 'content',
+                type: 'REMOVE_OVERLAY'
+            }).catch(() => {
+                // Ignore errors (tab might be closed)
+            });
+        } catch (e) {
+            // Ignore
+        }
+    }
 
     // Close offscreen to release WebGPU resources
     try {
@@ -106,18 +113,6 @@ async function stopCapture() {
     } catch (err) {
         console.error('Error closing offscreen document:', err);
     }
-
-    // Notify content to remove overlay
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-                target: 'content',
-                type: 'REMOVE_OVERLAY'
-            }).catch(() => {
-                // Ignore errors
-            });
-        }
-    });
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -157,13 +152,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Relay to content
     if (message.target === 'content') {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, message).catch(() => {
-                    // Ignore errors if content script isn't ready
-                });
-            }
-        });
+        if (currentTabId) {
+            chrome.tabs.sendMessage(currentTabId, message).catch(() => {
+                // Ignore errors if content script isn't ready
+            });
+        }
     }
 
     return true; // Keep channel open for async response
