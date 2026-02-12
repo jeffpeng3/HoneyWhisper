@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { ModelRegistry, DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
   import ModelHubCard from "./ModelHubCard.svelte";
+  import AdvancedSettings from "./AdvancedSettings.svelte";
   import { ModeWatcher } from "mode-watcher";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { checkUpdate } from "../lib/version.js";
@@ -46,6 +47,14 @@
   // Update Check State
   let updateStatus = "idle"; // idle, checking, available, uptodate, error
   let updateData = null;
+
+  // Advanced VAD Settings
+  let vadSettings = {
+    positiveSpeechThreshold: 0.8,
+    negativeSpeechThreshold: 0.45,
+    minSpeechMs: 100,
+    redemptionMs: 50,
+  };
 
   const LANGUAGES = [
     { code: "en", name: "English" },
@@ -92,6 +101,13 @@
         translationService: "google",
         targetLanguage: "zh-TW",
         showOriginal: true,
+        // VAD Defaults
+        vad: {
+          positiveSpeechThreshold: 0.8,
+          negativeSpeechThreshold: 0.45,
+          minSpeechMs: 100,
+          redemptionMs: 50,
+        },
       },
       (items) => {
         profiles = items.profiles || DEFAULT_PROFILES;
@@ -103,6 +119,9 @@
         targetLanguage = items.targetLanguage;
         showOriginal =
           items.showOriginal !== undefined ? items.showOriginal : true;
+
+        // Merge defaults just in case
+        vadSettings = { ...vadSettings, ...(items.vad || {}) };
       },
     );
   }
@@ -137,6 +156,7 @@
         translationService,
         targetLanguage,
         showOriginal,
+        vad: vadSettings,
       },
       () => {
         showStatus("Settings Saved");
@@ -158,6 +178,7 @@
               targetLanguage,
               language,
               showOriginal,
+              vad: vadSettings,
             },
           })
           .catch(() => {});
@@ -328,10 +349,11 @@
     onValueChange={(v) => (activeTab = v)}
     class="w-full"
   >
-    <Tabs.List class="grid w-full grid-cols-3 mb-6">
+    <Tabs.List class="grid w-full grid-cols-4 mb-6">
       <Tabs.Trigger value="profiles">profiles</Tabs.Trigger>
       <Tabs.Trigger value="hub">Model Hub</Tabs.Trigger>
       <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
+      <Tabs.Trigger value="advanced">Advanced</Tabs.Trigger>
     </Tabs.List>
 
     <Tabs.Content value="profiles">
@@ -679,6 +701,10 @@
           </div>
         </Card.Content>
       </Card.Root>
+    </Tabs.Content>
+
+    <Tabs.Content value="advanced">
+      <AdvancedSettings bind:vadSettings onChange={saveSettings} />
     </Tabs.Content>
   </Tabs.Root>
 </main>

@@ -32,6 +32,12 @@ let pipelineConfig = {
         service: 'google',
         target: 'zh-TW',
         showOriginal: true
+    },
+    vad: {
+        positiveSpeechThreshold: 0.8,
+        negativeSpeechThreshold: 0.45,
+        minSpeechMs: 100,
+        redemptionMs: 50
     }
 };
 
@@ -307,10 +313,10 @@ async function startRecording(streamId) {
             getStream: () => stream,
             baseAssetPath: chrome.runtime.getURL('assets/'),
             onnxWASMBasePath: chrome.runtime.getURL('assets/'),
-            positiveSpeechThreshold: 0.8,
-            negativeSpeechThreshold: 0.45,
-            redemptionMs: 50,
-            minSpeechMs: 100,
+            positiveSpeechThreshold: pipelineConfig.vad.positiveSpeechThreshold,
+            negativeSpeechThreshold: pipelineConfig.vad.negativeSpeechThreshold,
+            redemptionMs: pipelineConfig.vad.redemptionMs,
+            minSpeechMs: pipelineConfig.vad.minSpeechMs,
             model: 'v5',
             onSpeechStart: () => {
                 console.log("VAD: Speech Start");
@@ -413,6 +419,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
                     if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
                     if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
+
+                    if (settings.vad) {
+                        pipelineConfig.vad = { ...pipelineConfig.vad, ...settings.vad };
+                    }
                 }
             } else if (message.type === 'CLEAR_CACHE') {
                 try {
