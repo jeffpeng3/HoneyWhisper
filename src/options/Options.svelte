@@ -110,23 +110,17 @@
   async function loadHubModels() {
     hubLoading = true;
     try {
-      // First try fetching form generic ModelRegistry/Local
-      hubModels = ModelRegistry.getModels();
-
-      // Try fetching remote
-      try {
-        const res = await fetch(
-          "https://raw.githubusercontent.com/jeffpeng3/HoneyWhisper/refs/heads/master/public/models.json",
+      const { models, error } = await ModelRegistry.fetchModels();
+      hubModels = models;
+      if (error) {
+        showStatus(
+          "Failed to load latest models from GitHub. Using local backup.",
         );
-        if (res.ok) {
-          const remoteModels = await res.json();
-          hubModels = remoteModels;
-        }
-      } catch (err) {
-        console.warn("Failed to fetch from GitHub, using local defaults", err);
+        console.warn("Hub Load Error:", error);
       }
     } catch (e) {
       console.error("Error loading hub:", e);
+      hubModels = [];
     } finally {
       hubLoading = false;
     }

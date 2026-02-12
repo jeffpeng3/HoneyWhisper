@@ -138,6 +138,10 @@ async function initPipeline(config) {
         desiredType = 'wasm';
     }
 
+    if (config.asr.model_id.includes('k2')) {
+        desiredType = 'k2';
+    }
+
     const TargetClass = BaseASR.get(desiredType);
     if (!TargetClass) {
         throw new Error(`ASR Backend '${desiredType}' not found in registry`);
@@ -151,7 +155,7 @@ async function initPipeline(config) {
     // Load Model
     reportProgress({ status: 'initiate', name: 'Whisper', file: 'Initializing Pipeline...' });
 
-    const device = desiredType === 'wasm' ? 'wasm' : 'webgpu';
+    const device = config.asr.type === 'wasm' ? 'wasm' : 'webgpu';
 
     try {
         await asrService.load({

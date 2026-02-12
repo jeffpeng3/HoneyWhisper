@@ -1,30 +1,22 @@
 [
     {
+        "id": "reazon-research/reazonspeech-k2-v2",
+        "name": "Japanese (ReazonSpeech K2)",
+        "engine": "k2ASR"
+    },
+    {
         "id": "onnx-community/whisper-tiny",
-        "name": "Tiny (Fastest, Low VRAM)"
+        "name": "Tiny (Fastest, Low VRAM)",
+        "engine": "transformers.js"
     },
     {
         "id": "onnx-community/whisper-base",
-        "name": "Base (Balanced)"
+        "name": "Base (Balanced)",
+        "engine": "transformers.js"
     },
     {
         "id": "onnx-community/whisper-small",
-        "name": "Small (High Quality, ~2GB VRAM)"
-    },
-    {
-        "id": "onnx-community/distil-small.en",
-        "name": "Distil-Small English (Fast & Accurate)"
-    },
-    {
-        "id": "onnx-community/whisper-medium-ONNX",
-        "name": "Medium (Very High Quality, ~5GB VRAM)"
-    },
-    {
-        "id": "onnx-community/whisper-large-v3-turbo",
-        "name": "Large v3 Turbo (Best, ~6GB VRAM)"
-    },
-    {
-        "id": "onnx-community/moonshine-base-ja-ONNX",
-        "name": "moonshine-base-ja"
+        "name": "Small (High Quality, ~2GB VRAM)",
+        "engine": "transformers.js"
     }
 ]

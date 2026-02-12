@@ -10,6 +10,7 @@
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
     "@ricky0123/vad-web": "^0.0.30",
+    "fft.js": "^4.0.4",
     "mode-watcher": "^1.1.0"
   },
   "devDependencies": {
