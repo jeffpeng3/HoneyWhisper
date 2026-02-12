@@ -18,5 +18,20 @@
         "id": "onnx-community/whisper-small",
         "name": "Small (High Quality, ~2GB VRAM)",
         "engine": "transformers.js"
+    },
+    {
+        "id": "onnx-community/distil-small.en",
+        "name": "Distil-Small English (Fast & Accurate)",
+        "engine": "transformers.js"
+    },
+    {
+        "id": "onnx-community/whisper-medium-ONNX",
+        "name": "Medium (Very High Quality, ~5GB VRAM)",
+        "engine": "transformers.js"
+    },
+    {
+        "id": "onnx-community/whisper-large-v3-turbo",
+        "name": "Large v3 Turbo (Best, ~6GB VRAM)",
+        "engine": "transformers.js"
     }
 ]
