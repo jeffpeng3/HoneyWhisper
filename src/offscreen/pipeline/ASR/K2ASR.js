@@ -65,8 +65,6 @@ export class K2ASR extends BaseASR {
                 this.sessions[name] = await ort.InferenceSession.create(buffer, { executionProviders: ['wasm'] });
             }
             report(`${name} Ready`, 100);
-            console.log(`[K2ASR] ${name} Inputs:`, this.sessions[name].inputNames);
-            console.log(`[K2ASR] ${name} Outputs:`, this.sessions[name].outputNames);
         };
 
         await loadSession('encoder', FILES.encoder, encoderOpts);
@@ -131,14 +129,7 @@ export class K2ASR extends BaseASR {
 
         if (numFrames === 0) return { text: "" };
 
-        // Debug: Log feature stats before CMVN
-        let minF = Infinity, maxF = -Infinity, sumF = 0;
-        for (let i = 0; i < features.length; i++) {
-            if (features[i] < minF) minF = features[i];
-            if (features[i] > maxF) maxF = features[i];
-            sumF += features[i];
-        }
-        console.log(`[K2ASR] Raw Features: Shape=[1, ${numFrames}, 80], Range=[${minF.toFixed(2)}, ${maxF.toFixed(2)}], Mean=${(sumF / features.length).toFixed(2)}`);
+
 
         // Apply Utterance CMVN (Mean Subtraction)
         // 1. Compute Mean per channel
@@ -157,14 +148,6 @@ export class K2ASR extends BaseASR {
             }
         }
 
-        // Debug: Log feature stats after CMVN
-        minF = Infinity; maxF = -Infinity; sumF = 0;
-        for (let i = 0; i < features.length; i++) {
-            if (features[i] < minF) minF = features[i];
-            if (features[i] > maxF) maxF = features[i];
-            sumF += features[i];
-        }
-        console.log(`[K2ASR] CMVN Features: Range=[${minF.toFixed(2)}, ${maxF.toFixed(2)}], Mean=${(sumF / features.length).toFixed(2)}`);
 
 
         // 2. Prepare Encoder Inputs (WebGPU)
@@ -191,13 +174,7 @@ export class K2ASR extends BaseASR {
         const T = encoderOut.dims[1];
         const C_enc = encoderOut.dims[2];
 
-        console.log(`[K2ASR] Encoder Output: T=${T}, C=${C_enc}`);
 
-        // Debug: Check tokens
-        console.log(`[K2ASR] Token[0]: "${this.tokens[0]}"`);
-
-        // Debug: Log encoder input names
-        console.log(`[K2ASR] Encoder Inputs:`, this.sessions.encoder.inputNames);
 
         // 3. Greedy Search Decoding (WASM)
         // Default context: [0, 0]
@@ -246,9 +223,6 @@ export class K2ASR extends BaseASR {
                 let maxVal = -Infinity;
                 let maxId = 0;
 
-                // Collect top k for debug
-                const debugLogits = [];
-
                 // Simple argmax loop
                 for (let i = 0; i < vocabSize; i++) {
                     const val = logits.data[i];
@@ -256,22 +230,9 @@ export class K2ASR extends BaseASR {
                         maxVal = val;
                         maxId = i;
                     }
-                    // Keep track of top 3 roughly (inefficient sort but safe for debug)
-                    if (t < 3 && symPerFrame === 0) { // Only log first few frames
-                        debugLogits.push({ id: i, val: val });
-                    }
                 }
 
-                if (debugLogits.length > 0) {
-                    debugLogits.sort((a, b) => b.val - a.val);
-                    const top5 = debugLogits.slice(0, 5).map(x => `${x.id}(${x.val.toFixed(2)})`).join(', ');
-                    console.log(`[K2ASR] T=${t} Top5: ${top5}`);
-                }
 
-                // Debug: Log first non-blank hit
-                if (maxId !== 0 && results.length < 5) {
-                    console.log(`[K2ASR] Hit at t=${t}: id=${maxId}, prob=${Math.exp(maxVal)} (logit=${maxVal})`);
-                }
 
                 if (maxId !== 0) { // 0 is Blank
                     results.push(maxId);
@@ -296,10 +257,12 @@ export class K2ASR extends BaseASR {
             }
         }
 
-        console.log(`[K2ASR] Decoding done. Total IDs: ${results.length}`);
 
         // Decode results to string
         const text = results.map(id => this.tokens[id]).join('').replace(/<blk>/g, '').replace(/_/g, ' '); // _ is often space substitute
+        if (text) {
+            console.log(text);
+        }
 
         return { text: text };
     }
