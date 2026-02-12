@@ -214,7 +214,20 @@ async function generate(audio, isFinal = true) {
         const transcript = await asrService.transcribe(audio);
         let text = transcript.text;
 
+
         console.log(`Transcribed: "${text}"`);
+
+        // OPTIONAL: Send "Interim" update immediately if translation is enabled
+        // This allows the user to see the original text while waiting for translation
+        if (text.length > 0 && pipelineConfig.translation.enabled) {
+            chrome.runtime.sendMessage({
+                target: 'content',
+                type: 'SUBTITLE_UPDATE',
+                text: text,
+                translatedText: null,
+                isFinal: false // Mark as not final so it doesn't get added to history yet
+            }).catch((err) => { });
+        }
 
         // 2. Translate
         let translatedText = null;

@@ -155,7 +155,7 @@
                         }
                         // Update pending text
                         if (message.translatedText) {
-                            lastFinalText = `${message.translatedText} <span style="font-size: 0.8em; opacity: 0.8;">(${message.text})</span>`;
+                            lastFinalText = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
                         } else {
                             lastFinalText = message.text;
                         }
