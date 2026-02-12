@@ -213,6 +213,32 @@
                         currentEl.innerText = 'Initiating Model...';
                     }
                 }
+            } else if (message.type === 'PERFORMANCE_WARNING') {
+                const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
+                const warningId = 'whisper-perf-warning';
+                let warningEl = document.getElementById(warningId);
+
+                if (el) {
+                    el.style.display = 'block';
+                    if (!warningEl) {
+                        warningEl = document.createElement('div');
+                        warningEl.id = warningId;
+                        warningEl.style.color = '#ff4444';
+                        warningEl.style.fontSize = '0.8em';
+                        warningEl.style.marginBottom = '5px';
+                        warningEl.style.fontWeight = 'bold';
+                        el.insertBefore(warningEl, el.firstChild);
+                    }
+
+                    warningEl.innerText = "⚠️ System Overload: Processing Busy";
+
+                    // Auto-hide
+                    setTimeout(() => {
+                        if (document.getElementById(warningId)) {
+                            warningEl.remove();
+                        }
+                    }, 3000);
+                }
             }
         }
     });

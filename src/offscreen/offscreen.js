@@ -197,12 +197,11 @@ async function releaseASR() {
     }
 }
 
-// Generate Subtitles
-async function generate(audio, isFinal = true) {
-    if (processing) {
-        console.warn("Processing busy, skipping...");
-        return;
-    }
+const MAX_QUEUE_SIZE = 5;
+const audioQueue = [];
+
+async function processAudio(audio, isFinal) {
+    if (processing) return; // Should be handled by queue, but safety check
     processing = true;
 
     try {
@@ -267,7 +266,32 @@ async function generate(audio, isFinal = true) {
         console.error("Generation/Translation Error:", err);
     } finally {
         processing = false;
+        processQueue(); // Process next item
     }
+}
+
+async function processQueue() {
+    if (processing) return;
+    if (audioQueue.length === 0) return;
+
+    const { audio, isFinal } = audioQueue.shift();
+    await processAudio(audio, isFinal);
+}
+
+// Generate Subtitles (Entry Point)
+async function generate(audio, isFinal = true) {
+    if (audioQueue.length >= MAX_QUEUE_SIZE) {
+        console.warn("Processing busy, queue full. Dropping request.");
+        chrome.runtime.sendMessage({
+            target: 'content',
+            type: 'PERFORMANCE_WARNING',
+            message: 'System overload. Try smaller model.'
+        }).catch(() => { });
+        return;
+    }
+
+    audioQueue.push({ audio, isFinal });
+    processQueue();
 }
 
 async function preloadVAD() {
