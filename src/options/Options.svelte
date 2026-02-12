@@ -223,6 +223,7 @@
     profiles = [...profiles, newProfile];
     saveSettings();
     activeTab = "profiles";
+    editProfile(newProfile); // Jump to edit page
     showStatus(`Created profile: ${newProfile.name}`);
   }
 
