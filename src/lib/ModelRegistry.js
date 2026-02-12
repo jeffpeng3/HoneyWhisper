@@ -1,5 +1,14 @@
 export const DEFAULT_PROFILES = [
     {
+        id: 'default-jp',
+        name: 'Japanese (ReazonSpeech)',
+        backend: 'wasm',
+        model_id: 'reazon-research/reazonspeech-k2-v2',
+        quantization: 'int8',
+        remote_endpoint: '',
+        remote_key: ''
+    },
+    {
         id: 'default-tiny',
         name: 'Fast (Tiny)',
         backend: 'webgpu',
@@ -14,15 +23,6 @@ export const DEFAULT_PROFILES = [
         backend: 'webgpu',
         model_id: 'onnx-community/whisper-base',
         quantization: 'q4',
-        remote_endpoint: '',
-        remote_key: ''
-    },
-    {
-        id: 'default-jp',
-        name: 'Japanese (ReazonSpeech)',
-        backend: 'wasm',
-        model_id: 'reazon-research/reazonspeech-k2-v2',
-        quantization: 'int8',
         remote_endpoint: '',
         remote_key: ''
     }
