@@ -267,6 +267,30 @@
     }
   }
 
+  async function resetAllData() {
+    if (
+      confirm(
+        "Are you sure you want to delete ALL data? This will remove all profiles, settings, and downloaded models. This action cannot be undone.",
+      )
+    ) {
+      try {
+        await chrome.storage.sync.clear();
+        await chrome.storage.local.clear();
+
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+
+        showStatus("All data reset. Reloading defaults...");
+
+        // Reload default settings
+        loadSettings();
+        installedModels = [];
+      } catch (err) {
+        alert("Error resetting data: " + err.message);
+      }
+    }
+  }
+
   // Helpers for Select
   function getLanguageName(code) {
     return LANGUAGES.find((l) => l.code === code)?.name || code;
@@ -402,14 +426,10 @@
                 <Label for="model-id">Model ID (HuggingFace)</Label>
                 <Input
                   id="model-id"
-                  list="common-models"
+                  type="text"
                   bind:value={tempProfile.model_id}
+                  placeholder="onnx-community/whisper-tiny"
                 />
-                <datalist id="common-models">
-                  <option value="onnx-community/whisper-tiny"></option>
-                  <option value="onnx-community/whisper-base"></option>
-                  <option value="onnx-community/whisper-small"></option>
-                </datalist>
               </div>
               <div class="grid gap-2">
                 <Label>Quantization</Label>
@@ -637,13 +657,20 @@
 
           <div class="space-y-4 border-t pt-4">
             <h3 class="text-lg font-medium text-destructive">Debug</h3>
-            <div class="flex gap-2">
-              <Button variant="destructive" size="sm" onclick={clearCache}
+            <div class="flex gap-2 flex-wrap text-xs">
+              <Button variant="secondary" size="sm" onclick={clearCache}
                 >Clear Cache</Button
               >
               <Button variant="outline" size="sm" onclick={listModels}
                 >Check Cache</Button
               >
+              <Button variant="destructive" size="sm" onclick={resetAllData}
+                >Reset All Data</Button
+              >
+            </div>
+            <div class="text-xs text-muted-foreground">
+              * Reset All Data will remove all profiles, settings, and
+              downloaded models.
             </div>
             {#if installedModels.length > 0}
               <div
