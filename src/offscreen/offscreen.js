@@ -251,12 +251,33 @@ async function generate(audio, isFinal = true) {
     }
 }
 
+async function preloadVAD() {
+    console.log("Preloading VAD assets...");
+    const assets = [
+        'silero_vad_v5.onnx',
+        'vad.worklet.bundle.min.js'
+    ];
+
+    // We don't strictly need to report progress for these small files, 
+    // but fetching them ensures they are in browser cache.
+    for (const asset of assets) {
+        try {
+            const url = chrome.runtime.getURL(`assets/${asset}`);
+            await fetch(url);
+        } catch (e) {
+            console.warn(`[Preload] Failed to fetch ${asset}:`, e);
+        }
+    }
+    console.log("VAD assets preloaded.");
+}
+
 // Start Recording
 async function startRecording(streamId) {
     if (vadInstance) return;
 
     try {
         await initPipeline(pipelineConfig);
+        await preloadVAD();
 
         stream = await navigator.mediaDevices.getUserMedia({
             audio: {

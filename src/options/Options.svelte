@@ -217,7 +217,7 @@
     const newProfile = ModelRegistry.createProfile(
       model.name,
       model.id,
-      "webgpu",
+      model.type,
       { quantization: "q4" },
     );
     profiles = [...profiles, newProfile];
