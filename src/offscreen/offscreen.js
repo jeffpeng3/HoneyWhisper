@@ -472,7 +472,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } else if (message.type === 'GET_CACHED_MODELS') {
                 try {
                     const keys = await caches.keys();
-                    const models = keys.filter(k => k.startsWith('transformers-cache-'));
+                    const models = keys.filter(k => k.startsWith('transformers-cache-') || k.startsWith('k2-models'));
                     chrome.runtime.sendMessage({
                         target: 'popup',
                         type: 'CACHED_MODELS_LIST',
@@ -480,6 +480,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     });
                 } catch (err) {
                     console.error("Failed to get cached models:", err);
+                }
+            } else if (message.type === 'DOWNLOAD_MODEL') {
+                // Download-only: fetch model files to cache without starting recording
+                const settings = message.settings || {};
+                let desiredType = settings.asrBackend || 'webgpu';
+                const modelId = settings.model_id || '';
+
+                if (modelId.includes('k2')) {
+                    desiredType = 'k2';
+                }
+
+                try {
+                    const TargetClass = BaseASR.get(desiredType);
+                    if (!TargetClass) {
+                        throw new Error(`ASR Backend '${desiredType}' not found`);
+                    }
+
+                    const tempService = BaseASR.create(desiredType);
+                    const device = desiredType === 'wasm' ? 'wasm' : 'webgpu';
+
+                    reportProgress({ status: 'initiate', name: 'Download', file: 'Initializing Download...' });
+
+                    await tempService.download({
+                        model_id: modelId,
+                        quantization: settings.quantization || 'q4',
+                        device: device,
+                        language: settings.language || 'en',
+                        progress_callback: (data) => reportProgress(data)
+                    });
+
+                    reportProgress({ status: 'done' });
+                    console.log(`Model downloaded to cache: ${modelId}`);
+
+                    // Notify popup that download is complete
+                    chrome.runtime.sendMessage({
+                        type: 'DOWNLOAD_COMPLETE',
+                        target: 'popup'
+                    }).catch(() => { });
+                } catch (err) {
+                    console.error("Download Error:", err);
+                    reportProgress({ status: 'error', error: err.message });
                 }
             }
         }

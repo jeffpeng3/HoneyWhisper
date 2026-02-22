@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import { DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
+  import { DEFAULT_PROFILES, ModelRegistry } from "../lib/ModelRegistry.js";
   import { ModeWatcher } from "mode-watcher";
 
   // Shadcn Components
@@ -13,7 +13,9 @@
   // State
   let isRecording = false;
   let isLoading = false;
+  let isDownloading = false;
   let autoCloseOnReady = false;
+  let modelCached = null; // null=checking, true=cached, false=not cached
 
   // Active Tab Info
   let showActiveTabInfo = false;
@@ -46,6 +48,8 @@
         } else {
           selectedProfileId = items.activeProfileId;
         }
+        // Check if current profile's model is cached
+        checkModelStatus();
       },
     );
 
@@ -78,6 +82,7 @@
       } else if (message.data.status === "done") {
         progressPercent = 100;
         progressText = "Whisper Model Ready!";
+        modelCached = true; // Model is now cached
         if (!autoCloseOnReady) {
           setTimeout(() => {
             showProgress = false;
@@ -88,12 +93,20 @@
         progressText = "Initializing...";
       } else if (message.data.status === "error") {
         progressText = "Error: " + message.data.error;
-        isLoading = false; // Reset loading on error
+        isLoading = false;
+        isDownloading = false;
       }
+    } else if (message.type === "DOWNLOAD_COMPLETE") {
+      // Download finished — model is now cached
+      modelCached = true;
+      isDownloading = false;
+      progressText = "Download Complete!";
+      setTimeout(() => {
+        showProgress = false;
+      }, 2000);
     } else if (message.type === "RECORDING_STARTED") {
       isLoading = false;
       progressText = "Recording Active!";
-      // Confirm recording state with pending tab ID if available
       setRecordingState(true, pendingTabId);
 
       if (autoCloseOnReady) {
@@ -108,6 +121,41 @@
     selectedProfileId = value;
     // Save selection
     chrome.storage.sync.set({ activeProfileId: selectedProfileId });
+    checkModelStatus();
+  }
+
+  async function checkModelStatus() {
+    modelCached = null;
+    const profile = profiles.find((p) => p.id === selectedProfileId);
+    if (!profile) {
+      modelCached = true;
+      return;
+    }
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "CHECK_MODEL_CACHED",
+        profile: profile,
+      });
+      modelCached = response?.cached ?? false;
+    } catch (e) {
+      modelCached = false;
+    }
+  }
+
+  async function downloadModel() {
+    const profile = profiles.find((p) => p.id === selectedProfileId);
+    if (!profile) {
+      alert("Please select a valid profile.");
+      return;
+    }
+    isDownloading = true;
+    showProgress = true;
+    progressPercent = 0;
+    progressText = "Downloading Model...";
+    chrome.runtime.sendMessage({
+      type: "REQUEST_DOWNLOAD",
+      profile: profile,
+    });
   }
 
   async function toggleRecording() {
@@ -239,23 +287,46 @@
         options={profiles.map((p) => ({ value: p.id, label: p.name }))}
         placeholder={selectedProfileName || "Select Profile"}
         onSelect={(v) => onProfileChange(v)}
-        disabled={isLoading}
+        disabled={isLoading || isDownloading}
         class="w-full"
       />
     {/if}
 
-    <Button
-      variant={isRecording ? "destructive" : "default"}
-      class="w-full h-12 text-lg font-semibold"
-      onclick={toggleRecording}
-      disabled={isLoading}
-    >
-      {isLoading
-        ? "Starting..."
-        : isRecording
-          ? "Stop Captioning"
-          : "Start Captioning"}
-    </Button>
+    {#if isRecording}
+      <Button
+        variant="destructive"
+        class="w-full h-12 text-lg font-semibold"
+        onclick={toggleRecording}
+      >
+        Stop Captioning
+      </Button>
+    {:else if modelCached === null}
+      <Button
+        variant="default"
+        class="w-full h-12 text-lg font-semibold"
+        disabled={true}
+      >
+        Checking...
+      </Button>
+    {:else if modelCached === false}
+      <Button
+        variant="secondary"
+        class="w-full h-12 text-lg font-semibold"
+        onclick={downloadModel}
+        disabled={isDownloading}
+      >
+        {isDownloading ? "Downloading..." : "Download Model"}
+      </Button>
+    {:else}
+      <Button
+        variant="default"
+        class="w-full h-12 text-lg font-semibold"
+        onclick={toggleRecording}
+        disabled={isLoading}
+      >
+        {isLoading ? "Starting..." : "Start Captioning"}
+      </Button>
+    {/if}
 
     {#if !isRecording}
       <Button

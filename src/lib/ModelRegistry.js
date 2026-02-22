@@ -90,6 +90,40 @@ export class ModelRegistry {
         }
     }
 
+    /**
+     * Check if a profile's model is already cached in the browser
+     * @param {object} profile - Profile object with model_id, backend, etc.
+     * @returns {Promise<boolean>} true if model is cached or doesn't need download
+     */
+    static async checkModelCached(profile) {
+        // Remote models don't need download
+        if (profile.backend === 'remote') return true;
+
+        try {
+            // K2 models: check k2-models-v1 cache for encoder file
+            if (profile.model_id.includes('k2')) {
+                const cache = await caches.open('k2-models-v1');
+                const encoderUrl = `https://huggingface.co/${profile.model_id}/resolve/main/encoder-epoch-99-avg-1.int8.onnx`;
+                const match = await cache.match(encoderUrl);
+                return !!match;
+            }
+
+            // transformers.js models: scan transformers-cache entries
+            const keys = await caches.keys();
+            for (const key of keys.filter(k => k.startsWith('transformers-cache'))) {
+                const cache = await caches.open(key);
+                const cachedRequests = await cache.keys();
+                const found = cachedRequests.some(req => req.url.includes(profile.model_id));
+                if (found) return true;
+            }
+            return false;
+        } catch (err) {
+            console.warn('Failed to check model cache:', err);
+            // If cache check fails, assume not cached (safer UX)
+            return false;
+        }
+    }
+
     static createProfile(name, modelId, backend = 'webgpu', options = {}) {
         return {
             id: crypto.randomUUID(),

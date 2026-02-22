@@ -8,7 +8,7 @@ let currentTabId = null;
 // Check if offscreen document exists
 async function hasOffscreenDocument() {
     const matchedClients = await clients.matchAll();
-    return matchedClients.some(c => c.url === offscreenUrl);
+    return matchedClients.some(c => c.url.endsWith(offscreenUrl));
 }
 
 async function setupOffscreenDocument() {
@@ -117,7 +117,22 @@ async function stopCapture() {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const handleMessage = async () => {
-        if (message.type === 'REQUEST_START') {
+        if (message.type === 'REQUEST_DOWNLOAD') {
+            // Download-only: create offscreen and forward download request
+            await setupOffscreenDocument('offscreen.html');
+            const profile = message.profile;
+            chrome.runtime.sendMessage({
+                type: 'DOWNLOAD_MODEL',
+                target: 'offscreen',
+                settings: {
+                    model_id: profile.model_id,
+                    quantization: profile.quantization,
+                    asrBackend: profile.backend,
+                    language: 'en'
+                }
+            });
+        }
+        else if (message.type === 'REQUEST_START') {
             await setupOffscreenDocument('offscreen.html');
 
             // Inject content script
@@ -135,12 +150,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         else if (message.type === 'RECORDING_STARTED') {
             setIcon(true);
         }
+        else if (message.type === 'DOWNLOAD_COMPLETE') {
+            // Close offscreen after download to release memory
+            try {
+                await chrome.offscreen.closeDocument();
+            } catch (err) {
+                // Ignore if already closed
+            }
+        }
         else if (message.type === 'VAD_STATUS') {
             if (message.status === 'ACTIVE') {
                 chrome.action.setBadgeText({ text: ' ' });
                 chrome.action.setBadgeBackgroundColor({ color: '#ff7474ff' });
             } else {
                 chrome.action.setBadgeText({ text: '' });
+            }
+        }
+        else if (message.type === 'CHECK_MODEL_CACHED') {
+            // Check if model files are in cache
+            const profile = message.profile;
+            try {
+                if (profile.backend === 'remote') {
+                    sendResponse({ cached: true });
+                    return;
+                }
+
+                if (profile.model_id.includes('k2')) {
+                    const cache = await caches.open('k2-models-v1');
+                    const encoderUrl = `https://huggingface.co/${profile.model_id}/resolve/main/encoder-epoch-99-avg-1.int8.onnx`;
+                    const match = await cache.match(encoderUrl);
+                    sendResponse({ cached: !!match });
+                    return;
+                }
+
+                // transformers.js models
+                const keys = await caches.keys();
+                for (const key of keys.filter(k => k.startsWith('transformers-cache'))) {
+                    const cache = await caches.open(key);
+                    const cachedRequests = await cache.keys();
+                    const found = cachedRequests.some(req => req.url.includes(profile.model_id));
+                    if (found) {
+                        sendResponse({ cached: true });
+                        return;
+                    }
+                }
+                sendResponse({ cached: false });
+            } catch (err) {
+                console.warn('Cache check failed:', err);
+                sendResponse({ cached: false });
             }
         }
         else if (message.type === 'GET_STATE') {

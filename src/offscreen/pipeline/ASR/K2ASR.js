@@ -21,6 +21,27 @@ export class K2ASR extends BaseASR {
         this.extractor = new MelFeatureExtractor({ numMelBins: 80 });
     }
 
+    async download(config) {
+        const { progress_callback } = config;
+        const report = (text, pct) => {
+            if (progress_callback) progress_callback({ status: 'progress', file: text, progress: pct });
+        };
+
+        // Download all files to cache without creating ONNX sessions
+        report('Downloading tokens...', 0);
+        await this._fetchAndCache(FILES.tokens, 'text', report);
+        report('Downloading encoder...', 25);
+        await this._fetchAndCache(FILES.encoder, 'arraybuffer', report);
+        report('Downloading decoder...', 50);
+        await this._fetchAndCache(FILES.decoder, 'arraybuffer', report);
+        report('Downloading joiner...', 75);
+        await this._fetchAndCache(FILES.joiner, 'arraybuffer', report);
+        report('Download complete', 100);
+
+        if (progress_callback) progress_callback({ status: 'done' });
+        console.log('K2ASR model files downloaded to cache.');
+    }
+
     async load(config) {
         // config.model_id should be 'reazonspeech-k2-v2' (or similar)
         // config.progress_callback

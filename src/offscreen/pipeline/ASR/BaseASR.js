@@ -18,6 +18,17 @@ export class BaseASR {
     }
 
     /**
+     * Download model files to cache without loading into memory.
+     * Subclasses should override for efficient cache-only download.
+     * @param {object} config 
+     */
+    async download(config) {
+        // Default: load then release (subclasses should override for efficiency)
+        await this.load(config);
+        await this.release();
+    }
+
+    /**
      * Load the model with the given configuration
      * @param {object} config 
      */

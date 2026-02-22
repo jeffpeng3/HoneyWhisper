@@ -25,6 +25,27 @@ export class LocalASR extends BaseASR {
         this.language = 'en';
     }
 
+    async download(config) {
+        const { model_id, quantization, progress_callback, device = "webgpu" } = config;
+
+        // Download model to cache by creating pipeline then immediately disposing
+        const transcriber = await pipeline(
+            "automatic-speech-recognition",
+            model_id,
+            {
+                dtype: quantization,
+                device: device,
+                progress_callback,
+            }
+        );
+
+        // Dispose immediately - files are now in cache
+        if (transcriber.dispose) {
+            await transcriber.dispose();
+        }
+        console.log(`LocalASR model ${model_id} downloaded to cache.`);
+    }
+
     async load(config) {
         const { model_id, quantization, progress_callback, device = "webgpu", language = 'en' } = config;
 
