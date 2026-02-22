@@ -134,40 +134,46 @@
                     maxHistoryLines = parseInt(message.settings.historyLines);
                 }
 
-                if (el && currentEl) {
-                    // Update Current
-                    if (message.translatedText) {
-                        currentEl.innerHTML = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
-                    } else {
-                        currentEl.innerText = message.text;
+                // Check for pending history push (Trigger on ANY new text arrival)
+                // This ensures that when a new subtitle (even interim) replaces the current one,
+                // the previous final subtitle is immediately saved to history.
+                if (message.text && lastFinalText !== null) {
+                    historyBuffer.push(lastFinalText);
+                    while (historyBuffer.length > maxHistoryLines) {
+                        historyBuffer.shift();
                     }
-                    el.style.display = 'block';
+                    updateHistoryDisplay();
+                    lastFinalText = null;
 
-                    // Finalize History
-                    if (message.isFinal && message.text) {
-                        // Only push the PREVIOUS final text to history
-                        if (lastFinalText !== null) {
-                            historyBuffer.push(lastFinalText);
-                            while (historyBuffer.length > maxHistoryLines) {
-                                historyBuffer.shift();
-                            }
-                            updateHistoryDisplay();
-                        }
-                        // Update pending text
-                        if (message.translatedText) {
-                            lastFinalText = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
-                        } else {
-                            lastFinalText = message.text;
-                        }
-                    }
-
-                    // Hide if empty
-                    if (!message.text && historyBuffer.length === 0 && !lastFinalText) {
-                        el.style.display = 'none';
-                    }
-
-                    updateHistoryDisplay(); // Ensure sync
+                    // Hide if we only had the old text and now we are legally pushing it, 
+                    // but actually we have new text coming right below so we don't need to hide.
+                    // The display logic below handles showing the new text.
                 }
+
+                // Update Current
+                if (message.translatedText) {
+                    currentEl.innerHTML = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
+                } else {
+                    currentEl.innerText = message.text;
+                }
+                el.style.display = 'block';
+
+                // Finalize History (Store for NEXT push)
+                if (message.isFinal && message.text) {
+                    // Update pending text (to be pushed when NEXT subtitle arrives)
+                    if (message.translatedText) {
+                        lastFinalText = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
+                    } else {
+                        lastFinalText = message.text;
+                    }
+                }
+
+                // Hide if empty
+                if (!message.text && historyBuffer.length === 0 && !lastFinalText) {
+                    el.style.display = 'none';
+                }
+
+                updateHistoryDisplay(); // Ensure sync
             } else if (message.type === 'UPDATE_SETTINGS') {
                 const el = document.getElementById('webgpu-subtitle-overlay');
                 if (el && message.settings.fontSize) {
