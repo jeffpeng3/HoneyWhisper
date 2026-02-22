@@ -46,7 +46,7 @@
     *   前往 `chrome://extensions`。
     *   開啟 **開發者模式**。
     *   點擊 **載入未封裝項目**。
-    *   選擇編譯產生的 `dist` 資料夾。
+    *   選擇編譯產生的 `.output/chrome-mv3` 資料夾。
 
 ## 📖 使用方法
 
@@ -118,7 +118,7 @@ HoneyWhisper 提供三種運算後端，滿足不同硬體需求：
 
 ### Build & Tools (建置工具)
 *   **[Vite](https://vitejs.dev/):** 極速前端建置工具。
-*   **[CRXJS](https://crxjs.dev/vite-plugin):** 專為 Vite 設計的 Chrome Extension 建置插件。
+*   **[WXT](https://wxt.dev/):** 強大的下一代瀏覽器擴充功能開發框架。
 
 ## ⚠️ 系統需求
 

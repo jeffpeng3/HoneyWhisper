@@ -1,6 +1,6 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  import { DEFAULT_PROFILES, ModelRegistry } from "../lib/ModelRegistry.js";
+  import { DEFAULT_PROFILES, ModelRegistry } from "$lib/ModelRegistry.js";
   import { ModeWatcher } from "mode-watcher";
 
   // Shadcn Components

@@ -1,11 +1,11 @@
 <script>
   import { onMount } from "svelte";
-  import { ModelRegistry, DEFAULT_PROFILES } from "../lib/ModelRegistry.js";
+  import { ModelRegistry, DEFAULT_PROFILES } from "$lib/ModelRegistry.js";
   import ModelHubCard from "./ModelHubCard.svelte";
   import AdvancedSettings from "./AdvancedSettings.svelte";
   import { ModeWatcher } from "mode-watcher";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import { checkUpdate } from "../lib/version.js";
+  import { checkUpdate } from "$lib/version.js";
 
   // Shadcn UI Components
   import { Button } from "$lib/components/ui/button/index.js";
@@ -57,9 +57,9 @@
   };
 
   const LANGUAGES = [
+    { code: "ja", name: "Japanese (日本語)" },
     { code: "en", name: "English" },
     { code: "zh", name: "Chinese (中文)" },
-    { code: "ja", name: "Japanese (日本語)" },
     { code: "es", name: "Spanish" },
     { code: "fr", name: "French" },
     { code: "de", name: "German" },

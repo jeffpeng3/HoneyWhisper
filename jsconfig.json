@@ -1,4 +1,5 @@
 {
+    "extends": "./.wxt/tsconfig.json",
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
@@ -12,6 +13,9 @@
     },
     "include": [
         "src/**/*",
-        "src/**/*.svelte"
+        "src/**/*.svelte",
+        "entrypoints/**/*",
+        "entrypoints/**/*.svelte",
+        ".wxt/types/**/*.d.ts"
     ]
 }

@@ -23,20 +23,14 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Build extension
-      run: npm run build
-
-    - name: Package extension (Zip)
-      run: |
-        cd dist
-        zip -r ../honey-whisper-extension.zip ./*
-        cd ..
+    - name: Build and package extension
+      run: npm run zip
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v6
       with:
         name: honey-whisper-extension
-        path: honey-whisper-extension.zip
+        path: .output/*-chrome.zip
         retention-days: 7
 
     # ------------------------------------------------------------------

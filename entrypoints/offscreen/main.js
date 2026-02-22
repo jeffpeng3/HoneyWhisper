@@ -1,7 +1,7 @@
 import { MicVAD } from "@ricky0123/vad-web";
-import { BaseTranslator } from "./pipeline/Translation/BaseTranslator.js";
-import { BaseASR } from "./pipeline/ASR/BaseASR.js";
-import "./pipeline/registry_loader.js";
+import { BaseTranslator } from "@/pipeline/Translation/BaseTranslator.js";
+import { BaseASR } from "@/pipeline/ASR/BaseASR.js";
+import "@/pipeline/registry_loader.js";
 
 console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 
@@ -348,8 +348,8 @@ async function startRecording(streamId) {
 
         vadInstance = await MicVAD.new({
             getStream: () => stream,
-            baseAssetPath: chrome.runtime.getURL('assets/'),
-            onnxWASMBasePath: chrome.runtime.getURL('assets/'),
+            baseAssetPath: chrome.runtime.getURL('/'),
+            onnxWASMBasePath: chrome.runtime.getURL('/'),
             positiveSpeechThreshold: pipelineConfig.vad.positiveSpeechThreshold,
             negativeSpeechThreshold: pipelineConfig.vad.negativeSpeechThreshold,
             redemptionMs: pipelineConfig.vad.redemptionMs,

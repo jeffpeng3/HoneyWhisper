@@ -2,6 +2,13 @@ import { BaseASR } from "./BaseASR.js";
 import { MelFeatureExtractor } from "./MelFeatureExtractor.js";
 import * as ort from 'onnxruntime-web';
 
+ort.env.wasm.wasmPaths = {
+    'ort-wasm-simd-threaded.jsep.wasm': chrome.runtime.getURL('ort-wasm-simd-threaded.jsep.wasm'),
+    'ort-wasm-simd-threaded.jsep.mjs': chrome.runtime.getURL('ort-wasm-simd-threaded.jsep.mjs'),
+    'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('ort-wasm-simd-threaded.wasm'),
+    'ort-wasm-simd-threaded.mjs': chrome.runtime.getURL('ort-wasm-simd-threaded.mjs'),
+};
+
 // Constants for ReazonSpeech v2
 const HF_REPO = "reazon-research/reazonspeech-k2-v2";
 const HF_BRANCH = "main";

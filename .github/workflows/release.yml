@@ -55,14 +55,8 @@ jobs:
     - name: Install Dependencies
       run: npm ci
 
-    - name: Build Extension
-      run: npm run build
-
-    - name: Package Extension
-      run: |
-        cd dist
-        zip -r ../honey-whisper-v${{ env.NEW_VERSION }}.zip ./*
-        cd ..
+    - name: Build and Package Extension
+      run: npm run zip
 
     - name: Push Changes
       run: |
@@ -74,7 +68,7 @@ jobs:
       with:
         tag_name: v${{ env.NEW_VERSION }}
         name: Release v${{ env.NEW_VERSION }}
-        files: honey-whisper-v${{ env.NEW_VERSION }}.zip
+        files: .output/*-chrome.zip
         draft: false
         prerelease: false
       env:
