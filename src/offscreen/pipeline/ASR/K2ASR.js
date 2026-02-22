@@ -121,6 +121,15 @@ export class K2ASR extends BaseASR {
     async transcribe(audioData) {
         if (!this.sessions.encoder) throw new Error("K2ASR not initialized");
 
+        // Prepend 0.9s of silence to work around K2 Zipformer recognition issue
+        // See: https://github.com/reazon-research/ReazonSpeech/issues/67
+        const PADDING_SECONDS = 0.9;
+        const SAMPLE_RATE = 16000;
+        const paddingSamples = Math.floor(PADDING_SECONDS * SAMPLE_RATE);
+        const paddedAudio = new Float32Array(paddingSamples + audioData.length);
+        paddedAudio.set(audioData, paddingSamples);
+        audioData = paddedAudio;
+
         // 1. Feature Extraction (Spectrogram)
         // Input: Float32Array 16kHz mono
         // Output: Float32Array [T, 80] (flattened)
@@ -132,16 +141,21 @@ export class K2ASR extends BaseASR {
 
 
         // Apply Utterance CMVN (Mean Subtraction)
-        // 1. Compute Mean per channel
+        // Skip padding frames so silence doesn't skew the mean
+        const paddingFrames = Math.floor(paddingSamples / this.extractor.frameShift);
+        const cmvnStart = Math.min(paddingFrames, numFrames);
+        const cmvnFrameCount = numFrames - cmvnStart;
+
+        // 1. Compute Mean per channel (only on real audio frames)
         const meanVec = new Float32Array(80).fill(0);
-        for (let t = 0; t < numFrames; t++) {
+        for (let t = cmvnStart; t < numFrames; t++) {
             for (let c = 0; c < 80; c++) {
                 meanVec[c] += features[t * 80 + c];
             }
         }
-        for (let c = 0; c < 80; c++) meanVec[c] /= numFrames;
+        for (let c = 0; c < 80; c++) meanVec[c] /= (cmvnFrameCount || 1);
 
-        // 2. Subtract Mean
+        // 2. Subtract Mean (apply to all frames including padding)
         for (let t = 0; t < numFrames; t++) {
             for (let c = 0; c < 80; c++) {
                 features[t * 80 + c] -= meanVec[c];
