@@ -9,41 +9,66 @@ export default defineContentScript({
         if (window.honeyWhisperInitialized) return;
         window.honeyWhisperInitialized = true;
 
+        let overlayEl = null;
+        let historyEl = null;
+        let currentEl = null;
+
+        let historyBuffer = [];
+        let maxHistoryLines = 1;
+        let lastFinalText = null;
+
         async function createOverlay() {
-            if (document.getElementById('webgpu-subtitle-overlay')) return;
+            if (overlayEl) return;
 
-            const div = document.createElement('div');
-            div.id = 'webgpu-subtitle-overlay';
-            div.style.position = 'fixed';
-            div.style.bottom = '100px';
-            div.style.left = '50%';
-            div.style.transform = 'translateX(-50%)';
-            div.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            div.style.color = 'white';
-            div.style.padding = '10px 20px';
-            div.style.borderRadius = '8px';
-            div.style.fontSize = '24px';
-            div.style.lineHeight = '1.4';
-            div.style.zIndex = '999999';
-            div.style.pointerEvents = 'auto'; // Enable pointer events for dragging
-            div.style.cursor = 'move'; // Indicate draggable
-            div.style.userSelect = 'none'; // Prevent text selection while dragging
-            div.style.textAlign = 'center';
-            div.style.width = 'max-content'; // Force width to fit content
-            div.style.maxWidth = '90vw';     // Limit to 90% of screen width
-            div.style.fontFamily = 'sans-serif';
-            div.style.textShadow = '0px 0px 4px black';
-            div.style.transition = 'opacity 0.3s';
+            overlayEl = document.createElement('div');
+            overlayEl.id = 'webgpu-subtitle-overlay';
+            Object.assign(overlayEl.style, {
+                position: 'fixed',
+                bottom: '100px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontSize: '24px',
+                lineHeight: '1.4',
+                zIndex: '999999',
+                pointerEvents: 'auto',
+                cursor: 'move',
+                userSelect: 'none',
+                textAlign: 'center',
+                width: 'max-content',
+                maxWidth: '90vw',
+                fontFamily: 'sans-serif',
+                textShadow: '0px 0px 4px black',
+                transition: 'opacity 0.3s'
+            });
 
-            div.innerHTML = `<div id="whisper-history" style="color: #bbb; font-size: 0.85em; margin-bottom: 4px;"></div><div id="whisper-current">${i18n.t('content.initializing')}</div>`;
+            overlayEl.innerHTML = `<div id="whisper-history" style="color: #bbb; font-size: 0.85em; margin-bottom: 4px;"></div><div id="whisper-current">${i18n.t('content.initializing')}</div>`;
 
-            // Drag Logic
+            document.body.appendChild(overlayEl);
+
+            // Cache child elements
+            historyEl = document.getElementById('whisper-history');
+            currentEl = document.getElementById('whisper-current');
+
+            makeDraggable(overlayEl);
+
+            // Load settings
+            const settings = await getSettings();
+            if (settings.fontSize) {
+                overlayEl.style.fontSize = `${settings.fontSize}px`;
+            }
+        }
+
+        function makeDraggable(element) {
             let isMouseDown = false;
             let isDragging = false;
             let startX, startY, initialLeft, initialTop;
             const DRAG_THRESHOLD = 5;
 
-            div.addEventListener('mousedown', (e) => {
+            element.addEventListener('mousedown', (e) => {
                 isMouseDown = true;
                 isDragging = false;
                 startX = e.clientX;
@@ -57,31 +82,24 @@ export default defineContentScript({
                 const deltaY = e.clientY - startY;
 
                 if (!isDragging) {
-                    // Check threshold
                     if (Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD) {
                         isDragging = true;
+                        const rect = element.getBoundingClientRect();
 
-                        // Initialize dragging state
-                        const rect = div.getBoundingClientRect();
-
-                        // For centered expansion, we track the CENTER X, not the left X
-                        initialLeft = rect.left + (rect.width / 2); // Center X
+                        initialLeft = rect.left + (rect.width / 2);
                         initialTop = rect.top;
 
-                        div.style.bottom = 'auto'; // Disable bottom positioning
-                        // Keep transform center-aligned!
-                        div.style.transform = 'translateX(-50%)';
-
-                        div.style.left = `${initialLeft}px`;
-                        div.style.top = `${initialTop}px`;
-                        div.style.backgroundColor = 'rgba(0, 0, 0, 0.9)'; // Darken when dragging
+                        element.style.bottom = 'auto';
+                        element.style.transform = 'translateX(-50%)';
+                        element.style.left = `${initialLeft}px`;
+                        element.style.top = `${initialTop}px`;
+                        element.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
                     }
                 }
 
                 if (isDragging) {
-                    // Update position based on center
-                    div.style.left = `${initialLeft + deltaX}px`;
-                    div.style.top = `${initialTop + deltaY}px`;
+                    element.style.left = `${initialLeft + deltaX}px`;
+                    element.style.top = `${initialTop + deltaY}px`;
                 }
             });
 
@@ -90,36 +108,21 @@ export default defineContentScript({
                     isMouseDown = false;
                     if (isDragging) {
                         isDragging = false;
-                        div.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                        element.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
                     }
                 }
             });
 
-            // Reset position on double click
-            div.addEventListener('dblclick', () => {
-                div.style.bottom = '100px';
-                div.style.top = 'auto';
-                div.style.left = '50%';
-                div.style.transform = 'translateX(-50%)';
-                div.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            element.addEventListener('dblclick', () => {
+                element.style.bottom = '100px';
+                element.style.top = 'auto';
+                element.style.left = '50%';
+                element.style.transform = 'translateX(-50%)';
+                element.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
             });
-
-            // Load settings
-            const settings = await getSettings();
-            if (settings.fontSize) {
-                div.style.fontSize = `${settings.fontSize}px`;
-            }
-
-            document.body.appendChild(div);
         }
 
-        // Load Settings
-        let historyBuffer = [];
-        let maxHistoryLines = 1;
-        let lastFinalText = null;
-
         function updateHistoryDisplay() {
-            const historyEl = document.getElementById('whisper-history');
             if (historyEl) {
                 historyEl.innerHTML = historyBuffer
                     .map(line => `<div>${line}</div>`)
@@ -127,16 +130,11 @@ export default defineContentScript({
             }
         }
 
-        // Set up message listener
-        // Set up message listeners
-        onMessage('RESULT', (message) => {
-            createOverlay();
-            const el = document.getElementById('webgpu-subtitle-overlay');
-            const currentEl = document.getElementById('whisper-current');
+        function handleResult(message) {
+            if (!overlayEl) createOverlay();
 
             const data = message.data;
 
-            // Check for pending history push (Trigger on ANY new text arrival)
             if (data.text && lastFinalText !== null) {
                 historyBuffer.push(lastFinalText);
                 while (historyBuffer.length > maxHistoryLines) {
@@ -146,17 +144,14 @@ export default defineContentScript({
                 lastFinalText = null;
             }
 
-            // Update Current
             if (data.translatedText) {
                 currentEl.innerHTML = `<div>${data.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${data.text}</div>`;
             } else {
                 currentEl.innerText = data.text;
             }
-            el.style.display = 'block';
+            overlayEl.style.display = 'block';
 
-            // Finalize History (Store for NEXT push)
             if (data.isFinal && data.text) {
-                // Update pending text (to be pushed when NEXT subtitle arrives)
                 if (data.translatedText) {
                     lastFinalText = `<div>${data.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${data.text}</div>`;
                 } else {
@@ -164,49 +159,43 @@ export default defineContentScript({
                 }
             }
 
-            // Hide if empty
             if (!data.text && historyBuffer.length === 0 && !lastFinalText) {
-                el.style.display = 'none';
+                overlayEl.style.display = 'none';
             }
 
-            updateHistoryDisplay(); // Ensure sync
-        });
+            updateHistoryDisplay();
+        }
 
-        onMessage('UPDATE_SETTINGS', (message) => {
-            const el = document.getElementById('webgpu-subtitle-overlay');
+        function handleUpdateSettings(message) {
             const settings = message.data.settings;
-            if (el && settings.fontSize) {
-                el.style.fontSize = `${settings.fontSize}px`;
+            if (overlayEl && settings.fontSize) {
+                overlayEl.style.fontSize = `${settings.fontSize}px`;
             }
             if (settings.historyLines !== undefined) {
                 maxHistoryLines = parseInt(settings.historyLines);
-                // Trim existing buffer if needed
                 while (historyBuffer.length > maxHistoryLines) {
                     historyBuffer.shift();
                 }
                 updateHistoryDisplay();
             }
-        });
+        }
 
-        onMessage('REMOVE_OVERLAY', () => {
-            const el = document.getElementById('webgpu-subtitle-overlay');
-            if (el) {
-                el.style.display = 'none';
-                const currentEl = document.getElementById('whisper-current');
+        function handleRemoveOverlay() {
+            if (overlayEl) {
+                overlayEl.style.display = 'none';
                 if (currentEl) currentEl.innerText = '';
                 historyBuffer = [];
                 lastFinalText = null;
                 updateHistoryDisplay();
             }
-        });
+        }
 
-        onMessage('DOWNLOAD_PROGRESS', (message) => {
+        function handleDownloadProgress(message) {
             const data = message.data;
-            const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
-            const currentEl = document.getElementById('whisper-current');
+            if (!overlayEl) createOverlay();
 
-            if (el && currentEl) {
-                el.style.display = 'block';
+            if (overlayEl && currentEl) {
+                overlayEl.style.display = 'block';
                 if (data.status === 'progress' || (data.progress && data.progress > 0 && data.progress < 100)) {
                     if (data.progress) {
                         currentEl.innerText = `${i18n.t('content.loading')}${Math.round(data.progress)}%`;
@@ -216,22 +205,22 @@ export default defineContentScript({
                     setTimeout(() => {
                         if (currentEl.innerText === i18n.t('content.modelReady')) {
                             currentEl.innerText = '';
-                            if (historyBuffer.length === 0) el.style.display = 'none';
+                            if (historyBuffer.length === 0) overlayEl.style.display = 'none';
                         }
                     }, 2000);
                 } else if (data.status === 'initiate') {
                     currentEl.innerText = i18n.t('content.initiatingModel');
                 }
             }
-        });
+        }
 
-        onMessage('PERFORMANCE_WARNING', (message) => {
-            const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
+        function handlePerformanceWarning() {
+            if (!overlayEl) createOverlay();
             const warningId = 'whisper-perf-warning';
             let warningEl = document.getElementById(warningId);
 
-            if (el) {
-                el.style.display = 'block';
+            if (overlayEl) {
+                overlayEl.style.display = 'block';
                 if (!warningEl) {
                     warningEl = document.createElement('div');
                     warningEl.id = warningId;
@@ -239,19 +228,26 @@ export default defineContentScript({
                     warningEl.style.fontSize = '0.8em';
                     warningEl.style.marginBottom = '5px';
                     warningEl.style.fontWeight = 'bold';
-                    el.insertBefore(warningEl, el.firstChild);
+                    overlayEl.insertBefore(warningEl, overlayEl.firstChild);
                 }
 
                 warningEl.innerText = i18n.t('content.systemOverload');
 
-                // Auto-hide
                 setTimeout(() => {
-                    if (document.getElementById(warningId)) {
-                        warningEl.remove();
+                    const elToRemove = document.getElementById(warningId);
+                    if (elToRemove) {
+                        elToRemove.remove();
                     }
                 }, 3000);
             }
-        });
+        }
+
+        // Set up message listeners
+        onMessage('RESULT', handleResult);
+        onMessage('UPDATE_SETTINGS', handleUpdateSettings);
+        onMessage('REMOVE_OVERLAY', handleRemoveOverlay);
+        onMessage('DOWNLOAD_PROGRESS', handleDownloadProgress);
+        onMessage('PERFORMANCE_WARNING', handlePerformanceWarning);
 
         // Initial Settings Load
         const initialSettings = await getSettings();

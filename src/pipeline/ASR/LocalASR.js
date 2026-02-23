@@ -28,7 +28,7 @@ export class LocalASR extends BaseASR {
         this.model_id = null;
         this.quantization = null;
         this.device = null;
-        this.language = 'en';
+        this.language = 'ja';
     }
 
     async download(config) {
@@ -53,7 +53,7 @@ export class LocalASR extends BaseASR {
     }
 
     async load(config) {
-        const { model_id, quantization, progress_callback, device = "webgpu", language = 'en' } = config;
+        const { model_id, quantization, progress_callback, device = "webgpu", language = 'ja' } = config;
 
         // Update language regardless of whether we reload the model
         this.language = language;

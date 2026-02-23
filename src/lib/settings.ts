@@ -24,7 +24,7 @@ export const extensionStorage = defineExtensionStorage<ExtensionSettings>(browse
 export const defaultSettings: ExtensionSettings = {
     profiles: DEFAULT_PROFILES,
     activeProfileId: DEFAULT_PROFILES[0].id,
-    language: "en",
+    language: "ja",
     fontSize: "24",
     historyLines: 1,
     translationEnabled: false,

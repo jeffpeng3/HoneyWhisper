@@ -6,7 +6,7 @@ export class RemoteASR extends BaseASR {
         super();
         this.endpoint = "http://localhost:9000/v1/audio/transcriptions"; // Default
         this.apiKey = "";
-        this.language = "en";
+        this.language = "ja";
     }
 
     async load(config) {

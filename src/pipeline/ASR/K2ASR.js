@@ -167,31 +167,9 @@ export class K2ASR extends BaseASR {
 
         if (numFrames === 0) return { text: "" };
 
-
-
         // Apply Utterance CMVN (Mean Subtraction)
-        // Skip padding frames so silence doesn't skew the mean
         const paddingFrames = Math.floor(paddingSamples / this.extractor.frameShift);
-        const cmvnStart = Math.min(paddingFrames, numFrames);
-        const cmvnFrameCount = numFrames - cmvnStart;
-
-        // 1. Compute Mean per channel (only on real audio frames)
-        const meanVec = new Float32Array(80).fill(0);
-        for (let t = cmvnStart; t < numFrames; t++) {
-            for (let c = 0; c < 80; c++) {
-                meanVec[c] += features[t * 80 + c];
-            }
-        }
-        for (let c = 0; c < 80; c++) meanVec[c] /= (cmvnFrameCount || 1);
-
-        // 2. Subtract Mean (apply to all frames including padding)
-        for (let t = 0; t < numFrames; t++) {
-            for (let c = 0; c < 80; c++) {
-                features[t * 80 + c] -= meanVec[c];
-            }
-        }
-
-
+        this._applyCMVN(features, numFrames, paddingFrames);
 
         // 2. Prepare Encoder Inputs (WebGPU)
         // x: [1, T, 80]
@@ -217,9 +195,54 @@ export class K2ASR extends BaseASR {
         const T = encoderOut.dims[1];
         const C_enc = encoderOut.dims[2];
 
-
-
         // 3. Greedy Search Decoding (WASM)
+        const results = await this._runGreedySearch(encoderOut, T, C_enc);
+
+
+        // Decode results to string
+        const text = results.map(id => this.tokens[id]).join('').replace(/<blk>/g, '').replace(/_/g, ' '); // _ is often space substitute
+        if (text) {
+            console.log(text);
+        }
+
+        return { text: text };
+    }
+
+    _applyCMVN(features, numFrames, paddingFrames) {
+        // Skip padding frames so silence doesn't skew the mean
+        const cmvnStart = Math.min(paddingFrames, numFrames);
+        const cmvnFrameCount = numFrames - cmvnStart;
+
+        // 1. Compute Mean per channel (only on real audio frames)
+        const meanVec = new Float32Array(80).fill(0);
+        for (let t = cmvnStart; t < numFrames; t++) {
+            for (let c = 0; c < 80; c++) {
+                meanVec[c] += features[t * 80 + c];
+            }
+        }
+        for (let c = 0; c < 80; c++) meanVec[c] /= (cmvnFrameCount || 1);
+
+        // 2. Subtract Mean (apply to all frames including padding)
+        for (let t = 0; t < numFrames; t++) {
+            for (let c = 0; c < 80; c++) {
+                features[t * 80 + c] -= meanVec[c];
+            }
+        }
+    }
+
+    _argmax(array, length) {
+        let maxVal = -Infinity;
+        let maxId = 0;
+        for (let i = 0; i < length; i++) {
+            if (array[i] > maxVal) {
+                maxVal = array[i];
+                maxId = i;
+            }
+        }
+        return maxId;
+    }
+
+    async _runGreedySearch(encoderOut, T, C_enc) {
         // Default context: [0, 0]
         let hyp = [0n, 0n];
         let results = [];
@@ -247,13 +270,6 @@ export class K2ASR extends BaseASR {
                 const encFrameData = encoderData.subarray(encOffset, encOffset + C_enc);
                 const encFrameTensor = new ort.Tensor('float32', encFrameData, [1, C_enc]);
 
-                // decoderOut is already [1, C_dec] or [1, 1, C_dec]. 
-                // We need to make sure shape matches.
-                // If decoderOut from previous step is a Tensor, we reuse its data? 
-                // Or we just used the output tensor directly.
-                // We need to ensure it's wrapped correctly. 
-                // The output of .run is a Tensor.
-
                 const joinerResults = await this.sessions.joiner.run({
                     encoder_out: encFrameTensor,
                     decoder_out: decoderOut
@@ -263,25 +279,12 @@ export class K2ASR extends BaseASR {
 
                 // Argmax
                 const vocabSize = logits.dims[1];
-                let maxVal = -Infinity;
-                let maxId = 0;
-
-                // Simple argmax loop
-                for (let i = 0; i < vocabSize; i++) {
-                    const val = logits.data[i];
-                    if (val > maxVal) {
-                        maxVal = val;
-                        maxId = i;
-                    }
-                }
-
-
+                const maxId = this._argmax(logits.data, vocabSize);
 
                 if (maxId !== 0) { // 0 is Blank
                     results.push(maxId);
 
                     // Update context: shift left and append new id
-                    // hyp = [hyp[1], newId]
                     hyp = [hyp[1], BigInt(maxId)];
 
                     // Run Decoder again
@@ -299,15 +302,7 @@ export class K2ASR extends BaseASR {
                 }
             }
         }
-
-
-        // Decode results to string
-        const text = results.map(id => this.tokens[id]).join('').replace(/<blk>/g, '').replace(/_/g, ' '); // _ is often space substitute
-        if (text) {
-            console.log(text);
-        }
-
-        return { text: text };
+        return results;
     }
 
     async release() {

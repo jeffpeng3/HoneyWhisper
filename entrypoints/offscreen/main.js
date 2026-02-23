@@ -24,7 +24,7 @@ let pipelineConfig = {
         type: 'webgpu', // 'webgpu', 'wasm', or 'remote'
         model_id: 'onnx-community/whisper-tiny',
         quantization: 'q4',
-        language: 'en', // Default language
+        language: 'ja', // Default language
         // Remote config
         endpoint: '',
         key: ''
@@ -475,7 +475,7 @@ onMessage('DOWNLOAD_MODEL', async (message) => {
             model_id: modelId,
             quantization: settings.quantization || 'q4',
             device: device,
-            language: settings.language || 'en',
+            language: settings.language || 'ja',
             progress_callback: (data) => reportProgress(data)
         });
 

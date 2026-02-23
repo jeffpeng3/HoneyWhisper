@@ -5,18 +5,19 @@
     import * as Card from "$lib/components/ui/card/index.js";
     import { i18n } from "#i18n";
 
-    export let vadSettings = {
-        positiveSpeechThreshold: 0.8,
-        negativeSpeechThreshold: 0.45,
-        minSpeechMs: 100,
-        redemptionMs: 50,
-    };
+    let {
+        vadSettings = $bindable({
+            positiveSpeechThreshold: 0.8,
+            negativeSpeechThreshold: 0.45,
+            minSpeechMs: 100,
+            redemptionMs: 50,
+        }),
+        onChange = () => {},
+    } = $props();
 
-    export let onChange = () => {};
-
-    function handleChange() {
+    $effect(() => {
         onChange(vadSettings);
-    }
+    });
 </script>
 
 <Card.Root>
@@ -42,7 +43,6 @@
                 step={0.01}
                 onValueChange={(v) => {
                     vadSettings.positiveSpeechThreshold = v[0];
-                    handleChange();
                 }}
             />
             <p class="text-xs text-muted-foreground">
@@ -65,7 +65,6 @@
                 step={0.01}
                 onValueChange={(v) => {
                     vadSettings.negativeSpeechThreshold = v[0];
-                    handleChange();
                 }}
             />
             <p class="text-xs text-muted-foreground">
@@ -82,7 +81,6 @@
                 min="0"
                 max="2000"
                 bind:value={vadSettings.minSpeechMs}
-                onchange={handleChange}
             />
             <p class="text-xs text-muted-foreground">
                 {i18n.t("advanced.minSpeechDesc")}
@@ -98,7 +96,6 @@
                 min="0"
                 max="2000"
                 bind:value={vadSettings.redemptionMs}
-                onchange={handleChange}
             />
             <p class="text-xs text-muted-foreground">
                 {i18n.t("advanced.redemptionDesc")}
