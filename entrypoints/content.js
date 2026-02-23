@@ -1,3 +1,5 @@
+import { onMessage } from '$lib/messaging';
+
 export default defineContentScript({
     matches: ['<all_urls>'],
     registration: 'runtime',
@@ -125,130 +127,128 @@ export default defineContentScript({
         }
 
         // Set up message listener
-        browser.runtime.onMessage.addListener((message) => {
-            if (message.target === 'content') {
-                if (message.type === 'SUBTITLE_UPDATE') {
-                    createOverlay();
-                    const el = document.getElementById('webgpu-subtitle-overlay');
-                    const currentEl = document.getElementById('whisper-current');
+        // Set up message listeners
+        onMessage('RESULT', (message) => {
+            createOverlay();
+            const el = document.getElementById('webgpu-subtitle-overlay');
+            const currentEl = document.getElementById('whisper-current');
 
-                    // Check for initial setting load if first run (lazy load)
-                    if (message.settings && message.settings.historyLines !== undefined) {
-                        maxHistoryLines = parseInt(message.settings.historyLines);
-                    }
+            const data = message.data;
 
-                    // Check for pending history push (Trigger on ANY new text arrival)
-                    // This ensures that when a new subtitle (even interim) replaces the current one,
-                    // the previous final subtitle is immediately saved to history.
-                    if (message.text && lastFinalText !== null) {
-                        historyBuffer.push(lastFinalText);
-                        while (historyBuffer.length > maxHistoryLines) {
-                            historyBuffer.shift();
-                        }
-                        updateHistoryDisplay();
-                        lastFinalText = null;
-
-                        // Hide if we only had the old text and now we are legally pushing it, 
-                        // but actually we have new text coming right below so we don't need to hide.
-                        // The display logic below handles showing the new text.
-                    }
-
-                    // Update Current
-                    if (message.translatedText) {
-                        currentEl.innerHTML = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
-                    } else {
-                        currentEl.innerText = message.text;
-                    }
-                    el.style.display = 'block';
-
-                    // Finalize History (Store for NEXT push)
-                    if (message.isFinal && message.text) {
-                        // Update pending text (to be pushed when NEXT subtitle arrives)
-                        if (message.translatedText) {
-                            lastFinalText = `<div>${message.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${message.text}</div>`;
-                        } else {
-                            lastFinalText = message.text;
-                        }
-                    }
-
-                    // Hide if empty
-                    if (!message.text && historyBuffer.length === 0 && !lastFinalText) {
-                        el.style.display = 'none';
-                    }
-
-                    updateHistoryDisplay(); // Ensure sync
-                } else if (message.type === 'UPDATE_SETTINGS') {
-                    const el = document.getElementById('webgpu-subtitle-overlay');
-                    if (el && message.settings.fontSize) {
-                        el.style.fontSize = `${message.settings.fontSize}px`;
-                    }
-                    if (message.settings.historyLines !== undefined) {
-                        maxHistoryLines = parseInt(message.settings.historyLines);
-                        // Trim existing buffer if needed
-                        while (historyBuffer.length > maxHistoryLines) {
-                            historyBuffer.shift();
-                        }
-                        updateHistoryDisplay();
-                    }
-                } else if (message.type === 'REMOVE_OVERLAY') {
-                    const el = document.getElementById('webgpu-subtitle-overlay');
-                    if (el) {
-                        el.style.display = 'none';
-                        const currentEl = document.getElementById('whisper-current');
-                        if (currentEl) currentEl.innerText = '';
-                        historyBuffer = [];
-                        lastFinalText = null;
-                        updateHistoryDisplay();
-                    }
-                } else if (message.type === 'MODEL_LOADING') {
-                    const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
-                    const currentEl = document.getElementById('whisper-current');
-
-                    if (el && currentEl) {
-                        el.style.display = 'block';
-                        if (message.data.status === 'progress') {
-                            if (message.data.progress) {
-                                currentEl.innerText = `Loading: ${Math.round(message.data.progress)}%`;
-                            }
-                        } else if (message.data.status === 'done') {
-                            currentEl.innerText = 'Model Ready';
-                            setTimeout(() => {
-                                if (currentEl.innerText === 'Model Ready') {
-                                    currentEl.innerText = '';
-                                    if (historyBuffer.length === 0) el.style.display = 'none';
-                                }
-                            }, 2000);
-                        } else if (message.data.status === 'initiate') {
-                            currentEl.innerText = 'Initiating Model...';
-                        }
-                    }
-                } else if (message.type === 'PERFORMANCE_WARNING') {
-                    const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
-                    const warningId = 'whisper-perf-warning';
-                    let warningEl = document.getElementById(warningId);
-
-                    if (el) {
-                        el.style.display = 'block';
-                        if (!warningEl) {
-                            warningEl = document.createElement('div');
-                            warningEl.id = warningId;
-                            warningEl.style.color = '#ff4444';
-                            warningEl.style.fontSize = '0.8em';
-                            warningEl.style.marginBottom = '5px';
-                            warningEl.style.fontWeight = 'bold';
-                            el.insertBefore(warningEl, el.firstChild);
-                        }
-
-                        warningEl.innerText = "⚠️ System Overload: Processing Busy";
-
-                        // Auto-hide
-                        setTimeout(() => {
-                            if (document.getElementById(warningId)) {
-                                warningEl.remove();
-                            }
-                        }, 3000);
-                    }
+            // Check for pending history push (Trigger on ANY new text arrival)
+            if (data.text && lastFinalText !== null) {
+                historyBuffer.push(lastFinalText);
+                while (historyBuffer.length > maxHistoryLines) {
+                    historyBuffer.shift();
                 }
+                updateHistoryDisplay();
+                lastFinalText = null;
+            }
+
+            // Update Current
+            if (data.translatedText) {
+                currentEl.innerHTML = `<div>${data.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${data.text}</div>`;
+            } else {
+                currentEl.innerText = data.text;
+            }
+            el.style.display = 'block';
+
+            // Finalize History (Store for NEXT push)
+            if (data.isFinal && data.text) {
+                // Update pending text (to be pushed when NEXT subtitle arrives)
+                if (data.translatedText) {
+                    lastFinalText = `<div>${data.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${data.text}</div>`;
+                } else {
+                    lastFinalText = data.text;
+                }
+            }
+
+            // Hide if empty
+            if (!data.text && historyBuffer.length === 0 && !lastFinalText) {
+                el.style.display = 'none';
+            }
+
+            updateHistoryDisplay(); // Ensure sync
+        });
+
+        onMessage('UPDATE_SETTINGS', (message) => {
+            const el = document.getElementById('webgpu-subtitle-overlay');
+            const settings = message.data.settings;
+            if (el && settings.fontSize) {
+                el.style.fontSize = `${settings.fontSize}px`;
+            }
+            if (settings.historyLines !== undefined) {
+                maxHistoryLines = parseInt(settings.historyLines);
+                // Trim existing buffer if needed
+                while (historyBuffer.length > maxHistoryLines) {
+                    historyBuffer.shift();
+                }
+                updateHistoryDisplay();
+            }
+        });
+
+        onMessage('REMOVE_OVERLAY', () => {
+            const el = document.getElementById('webgpu-subtitle-overlay');
+            if (el) {
+                el.style.display = 'none';
+                const currentEl = document.getElementById('whisper-current');
+                if (currentEl) currentEl.innerText = '';
+                historyBuffer = [];
+                lastFinalText = null;
+                updateHistoryDisplay();
+            }
+        });
+
+        onMessage('DOWNLOAD_PROGRESS', (message) => {
+            const data = message.data;
+            const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
+            const currentEl = document.getElementById('whisper-current');
+
+            if (el && currentEl) {
+                el.style.display = 'block';
+                if (data.status === 'progress' || (data.progress && data.progress > 0 && data.progress < 100)) {
+                    if (data.progress) {
+                        currentEl.innerText = `Loading: ${Math.round(data.progress)}%`;
+                    }
+                } else if (data.status === 'done' || data.progress === 100) {
+                    currentEl.innerText = 'Model Ready';
+                    setTimeout(() => {
+                        if (currentEl.innerText === 'Model Ready') {
+                            currentEl.innerText = '';
+                            if (historyBuffer.length === 0) el.style.display = 'none';
+                        }
+                    }, 2000);
+                } else if (data.status === 'initiate') {
+                    currentEl.innerText = 'Initiating Model...';
+                }
+            }
+        });
+
+        onMessage('PERFORMANCE_WARNING', (message) => {
+            const el = document.getElementById('webgpu-subtitle-overlay') || (createOverlay(), document.getElementById('webgpu-subtitle-overlay'));
+            const warningId = 'whisper-perf-warning';
+            let warningEl = document.getElementById(warningId);
+
+            if (el) {
+                el.style.display = 'block';
+                if (!warningEl) {
+                    warningEl = document.createElement('div');
+                    warningEl.id = warningId;
+                    warningEl.style.color = '#ff4444';
+                    warningEl.style.fontSize = '0.8em';
+                    warningEl.style.marginBottom = '5px';
+                    warningEl.style.fontWeight = 'bold';
+                    el.insertBefore(warningEl, el.firstChild);
+                }
+
+                warningEl.innerText = "⚠️ System Overload: Processing Busy";
+
+                // Auto-hide
+                setTimeout(() => {
+                    if (document.getElementById(warningId)) {
+                        warningEl.remove();
+                    }
+                }, 3000);
             }
         });
 

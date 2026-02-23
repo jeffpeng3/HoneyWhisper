@@ -1,6 +1,7 @@
+import { sendMessage, onMessage } from '$lib/messaging';
+
 export default defineBackground(() => {
     const offscreenUrl = '/offscreen.html';
-    // background.js
     let offscreenCreating;
     let isRecording = false;
     let currentTabId = null;
@@ -18,9 +19,9 @@ export default defineBackground(() => {
         if (offscreenCreating) {
             await offscreenCreating;
         } else {
-            offscreenCreating = chrome.offscreen.createDocument({
+            offscreenCreating = browser.offscreen.createDocument({
                 url: offscreenUrl,
-                reasons: [chrome.offscreen.Reason.USER_MEDIA],
+                reasons: [browser.offscreen.Reason.USER_MEDIA],
                 justification: 'Recording tab audio for transcription',
             });
             await offscreenCreating;
@@ -30,13 +31,13 @@ export default defineBackground(() => {
 
     function setIcon(active) {
         const path = active ? 'icons/icon_active.png' : 'icons/icon_idle.png';
-        chrome.action.setIcon({ path: path }).catch(() => {
+        browser.action.setIcon({ path: path }).catch(() => {
             // Ignore errors if icon setting fails
         });
     }
 
     async function startCapture(tabId, profile = null) {
-        const streamId = await chrome.tabCapture.getMediaStreamId({
+        const streamId = await browser.tabCapture.getMediaStreamId({
             targetTabId: tabId,
         });
 
@@ -46,7 +47,7 @@ export default defineBackground(() => {
 
         if (profile) {
             // Construct settings from passed profile + global settings
-            const globalSettings = await chrome.storage.sync.get({
+            const globalSettings = await browser.storage.sync.get({
                 language: 'en',
                 translationEnabled: false,
                 targetLanguage: 'zh-TW',
@@ -63,7 +64,7 @@ export default defineBackground(() => {
             };
         } else {
             // Fallback or Legacy path
-            settings = await chrome.storage.sync.get({
+            settings = await browser.storage.sync.get({
                 language: 'en',
                 model_id: 'onnx-community/whisper-tiny',
                 quantization: 'q4',
@@ -76,11 +77,10 @@ export default defineBackground(() => {
             });
         }
 
-        chrome.runtime.sendMessage({
-            type: 'START_RECORDING',
-            target: 'offscreen',
-            data: streamId,
-            settings
+        sendMessage('START_RECORDING', {
+            streamId,
+            profileIndex: profile ? profile.id : 0, // Fallback if no profile ID
+            pipelineConfig: settings
         });
 
         isRecording = true;
@@ -91,135 +91,163 @@ export default defineBackground(() => {
         isRecording = false;
         currentTabId = null;
         setIcon(false);
-        chrome.action.setBadgeText({ text: '' });
+        browser.action.setBadgeText({ text: '' });
 
         // Notify content to remove overlay from the specific tab
         if (tabIdToClear) {
             try {
-                chrome.tabs.sendMessage(tabIdToClear, {
-                    target: 'content',
-                    type: 'REMOVE_OVERLAY'
-                }).catch(() => {
-                    // Ignore errors (tab might be closed)
-                });
+                sendMessage('REMOVE_OVERLAY', undefined, { tabId: tabIdToClear });
             } catch (e) {
-                // Ignore
+                // Ignore errors (tab might be closed)
             }
         }
 
         // Close offscreen to release WebGPU resources
         try {
-            await chrome.offscreen.closeDocument();
+            await browser.offscreen.closeDocument();
         } catch (err) {
             console.error('Error closing offscreen document:', err);
         }
     }
 
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        const handleMessage = async () => {
-            if (message.type === 'REQUEST_DOWNLOAD') {
-                // Download-only: create offscreen and forward download request
-                await setupOffscreenDocument('offscreen.html');
-                const profile = message.profile;
-                chrome.runtime.sendMessage({
-                    type: 'DOWNLOAD_MODEL',
-                    target: 'offscreen',
-                    settings: {
-                        model_id: profile.model_id,
-                        quantization: profile.quantization,
-                        asrBackend: profile.backend,
-                        language: 'en'
-                    }
-                });
-            }
-            else if (message.type === 'REQUEST_START') {
-                await setupOffscreenDocument('offscreen.html');
+    onMessage('REQUEST_DOWNLOAD', async (message) => {
+        await setupOffscreenDocument();
+        const profileIndex = message.data.profileIndex;
+        const { profiles } = await browser.storage.sync.get({ profiles: [] });
+        const targetProfile = profiles[profileIndex] || {};
 
-                // Inject content script
-                chrome.scripting.executeScript({
-                    target: { tabId: message.tabId },
-                    files: ['/content-scripts/content.js']
-                });
-
-                // Pass profile if available
-                await startCapture(message.tabId, message.profile);
+        sendMessage('DOWNLOAD_MODEL', {
+            profileIndex: profileIndex,
+            pipelineConfig: {
+                model_id: targetProfile.model_id,
+                quantization: targetProfile.quantization,
+                asrBackend: targetProfile.backend,
+                language: 'en'
             }
-            else if (message.type === 'REQUEST_STOP') {
-                await stopCapture();
-            }
-            else if (message.type === 'RECORDING_STARTED') {
-                setIcon(true);
-            }
-            else if (message.type === 'DOWNLOAD_COMPLETE') {
-                // Close offscreen after download to release memory
-                try {
-                    await chrome.offscreen.closeDocument();
-                } catch (err) {
-                    // Ignore if already closed
-                }
-            }
-            else if (message.type === 'VAD_STATUS') {
-                if (message.status === 'ACTIVE') {
-                    chrome.action.setBadgeText({ text: ' ' });
-                    chrome.action.setBadgeBackgroundColor({ color: '#ff7474ff' });
-                } else {
-                    chrome.action.setBadgeText({ text: '' });
-                }
-            }
-            else if (message.type === 'CHECK_MODEL_CACHED') {
-                // Check if model files are in cache
-                const profile = message.profile;
-                try {
-                    if (profile.backend === 'remote') {
-                        sendResponse({ cached: true });
-                        return;
-                    }
-
-                    if (profile.model_id.includes('k2')) {
-                        const cache = await caches.open('k2-models-v1');
-                        const encoderUrl = `https://huggingface.co/${profile.model_id}/resolve/main/encoder-epoch-99-avg-1.int8.onnx`;
-                        const match = await cache.match(encoderUrl);
-                        sendResponse({ cached: !!match });
-                        return;
-                    }
-
-                    // transformers.js models
-                    const keys = await caches.keys();
-                    for (const key of keys.filter(k => k.startsWith('transformers-cache'))) {
-                        const cache = await caches.open(key);
-                        const cachedRequests = await cache.keys();
-                        const found = cachedRequests.some(req => req.url.includes(profile.model_id));
-                        if (found) {
-                            sendResponse({ cached: true });
-                            return;
-                        }
-                    }
-                    sendResponse({ cached: false });
-                } catch (err) {
-                    console.warn('Cache check failed:', err);
-                    sendResponse({ cached: false });
-                }
-            }
-            else if (message.type === 'GET_STATE') {
-                sendResponse({ isRecording, currentTabId });
-            }
-        };
-
-        handleMessage();
-
-        // Relay to content
-        if (message.target === 'content') {
-            if (currentTabId) {
-                chrome.tabs.sendMessage(currentTabId, message).catch(() => {
-                    // Ignore errors if content script isn't ready
-                });
-            }
-        }
-
-        return true; // Keep channel open for async response
+        });
     });
 
-    // Auto-stop when tab is reloaded or closed
+    onMessage('REQUEST_START', async (message) => {
+        await setupOffscreenDocument();
+
+        const tabId = message.sender.tab?.id || currentTabId;
+        let targetTabId = tabId;
+        if (!targetTabId) {
+            const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+            targetTabId = activeTab.id;
+        }
+
+        browser.scripting.executeScript({
+            target: { tabId: targetTabId },
+            files: ['/content-scripts/content.js']
+        });
+
+        const profileIndex = message.data.profileIndex;
+        const { profiles } = await browser.storage.sync.get({ profiles: [] });
+        const targetProfile = profiles[profileIndex];
+
+        await startCapture(targetTabId, targetProfile);
+    });
+
+    onMessage('REQUEST_STOP', async () => {
+        await stopCapture();
+    });
+
+    onMessage('RECORDING_STARTED', () => {
+        setIcon(true);
+    });
+
+    onMessage('DOWNLOAD_COMPLETE', async () => {
+        try {
+            await browser.offscreen.closeDocument();
+        } catch (err) { }
+    });
+
+    onMessage('VAD_STATUS', (message) => {
+        if (message.data.status === 'speech') {
+            browser.action.setBadgeText({ text: ' ' });
+            browser.action.setBadgeBackgroundColor({ color: '#ff7474ff' });
+        } else {
+            browser.action.setBadgeText({ text: '' });
+        }
+    });
+
+    onMessage('CHECK_MODEL_CACHED', async (message) => {
+        const targetConfig = message.data;
+        try {
+            if (targetConfig.device === 'remote') {
+                return true; // Remote models are always "cached"
+            }
+            if (targetConfig.model_id) {
+                const allCacheNames = await caches.keys();
+                console.log("[CHECK_MODEL_CACHED] Available caches:", allCacheNames, "Looking for:", targetConfig.model_id);
+
+                for (const cacheName of allCacheNames) {
+                    const cache = await caches.open(cacheName);
+                    const keys = await cache.keys();
+
+                    for (const req of keys) {
+                        const url = req.url;
+                        if (url.includes(targetConfig.model_id) || decodeURIComponent(url).includes(targetConfig.model_id)) {
+                            console.log("[CHECK_MODEL_CACHED] Found model in cache:", url);
+                            return true;
+                        }
+                    }
+                }
+                console.log("[CHECK_MODEL_CACHED] Model not found in any cache.");
+            }
+            return false;
+        } catch (err) {
+            console.error("Cache Check Error", err);
+            return false;
+        }
+    });
+
+    onMessage('CLEAR_CACHE', async () => {
+        try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+        } catch (err) {
+            console.error("Failed to clear cache:", err);
+            throw err;
+        }
+    });
+
+    onMessage('GET_CACHED_MODELS', async () => {
+        try {
+            const allCacheNames = await caches.keys();
+            const modelsSet = new Set();
+            for (const cacheName of allCacheNames) {
+                const cache = await caches.open(cacheName);
+                const reqs = await cache.keys();
+                reqs.forEach(req => {
+                    const url = decodeURIComponent(req.url);
+                    // Standard huggingface match
+                    const hfMatch = url.match(/huggingface\.co\/([^/]+\/[^/]+)\//);
+                    if (hfMatch && hfMatch[1]) modelsSet.add(hfMatch[1]);
+                    // K2 match (assuming it has some identifiable pattern, or just raw URL)
+                    if (cacheName.includes('k2')) {
+                        const k2Match = url.match(/huggingface\.co\/([^/]+\/[^/]+)\//);
+                        if (k2Match && k2Match[1]) modelsSet.add(k2Match[1]);
+                        else if (!url.includes('huggingface.co')) modelsSet.add(url);
+                    }
+                });
+            }
+            return Array.from(modelsSet);
+        } catch (err) {
+            console.error("Failed to get cached models:", err);
+            return [];
+        }
+    });
+
+    onMessage('GET_STATE', () => {
+        return {
+            isRecording,
+            currentProfileIndex: 0,
+            vadStatus: isRecording ? 'quiet' : 'idle'
+        };
+    });
+
     browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (isRecording && tabId === currentTabId && changeInfo.status === 'loading') {
             stopCapture();
@@ -231,5 +259,4 @@ export default defineBackground(() => {
             stopCapture();
         }
     });
-
 });

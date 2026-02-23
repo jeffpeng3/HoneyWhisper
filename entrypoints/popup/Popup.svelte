@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { DEFAULT_PROFILES, ModelRegistry } from "$lib/ModelRegistry.js";
   import { ModeWatcher } from "mode-watcher";
+  import { sendMessage, onMessage } from "$lib/messaging";
 
   // Shadcn Components
   import { Button } from "$lib/components/ui/button/index.js";
@@ -33,6 +34,8 @@
   let profiles = [];
   let selectedProfileId = "";
 
+  let cleanupListeners = [];
+
   onMount(async () => {
     // 1. Load Profiles & Settings
     chrome.storage.sync.get(
@@ -55,67 +58,73 @@
 
     // 2. Check recording state
     try {
-      const response = await chrome.runtime.sendMessage({ type: "GET_STATE" });
+      const response = await sendMessage("GET_STATE", undefined);
       if (response && response.isRecording) {
-        setRecordingState(true, response.currentTabId);
+        setRecordingState(true, response.currentTabId); // Ensure currentTabId is handled correctly by GET_STATE
       }
     } catch (e) {
       // Background might not be ready
     }
 
     // 3. Message Listeners
-    chrome.runtime.onMessage.addListener(handleMessage);
+    cleanupListeners.push(
+      onMessage("DOWNLOAD_PROGRESS", (message) => {
+        showProgress = true;
+        progressStatus = message.data.status;
+
+        if (message.data.status === "error") {
+          progressText = "Error: " + (message.data.error || "Unknown Error");
+          isLoading = false;
+          isDownloading = false;
+          return;
+        }
+
+        if (message.data.status === "done") {
+          progressPercent = 100;
+          progressText = "Finishing Download...";
+          return;
+        }
+
+        progressPercent = Math.round(message.data.progress || 0);
+        progressText = `Loading ${message.data.file || "Model"}...`;
+      }),
+    );
+
+    cleanupListeners.push(
+      onMessage("DOWNLOAD_COMPLETE", async () => {
+        // Download finished — check cache to ensure it's there
+        await checkModelStatus();
+        isDownloading = false;
+        if (modelCached) {
+          progressText = "Download Complete!";
+          progressPercent = 100;
+        } else {
+          progressText = "Download failed to cache.";
+        }
+        setTimeout(() => {
+          showProgress = false;
+        }, 2000);
+      }),
+    );
+
+    cleanupListeners.push(
+      onMessage("RECORDING_STARTED", () => {
+        isLoading = false;
+        progressText = "Recording Active!";
+        setRecordingState(true, pendingTabId);
+
+        if (autoCloseOnReady) {
+          setTimeout(() => {
+            window.close();
+          }, 800);
+        }
+      }),
+    );
   });
 
   onDestroy(() => {
-    chrome.runtime.onMessage.removeListener(handleMessage);
+    cleanupListeners.forEach((cleanup) => cleanup());
   });
-
-  function handleMessage(message) {
-    if (message.type === "MODEL_LOADING") {
-      showProgress = true;
-      progressStatus = message.data.status;
-
-      if (message.data.status === "progress") {
-        progressPercent = Math.round(message.data.progress || 0);
-        progressText = `Loading ${message.data.file || "Model"}...`;
-      } else if (message.data.status === "done") {
-        progressPercent = 100;
-        progressText = "Whisper Model Ready!";
-        modelCached = true; // Model is now cached
-        if (!autoCloseOnReady) {
-          setTimeout(() => {
-            showProgress = false;
-          }, 2000);
-        }
-      } else if (message.data.status === "initiate") {
-        progressPercent = 0;
-        progressText = "Initializing...";
-      } else if (message.data.status === "error") {
-        progressText = "Error: " + message.data.error;
-        isLoading = false;
-        isDownloading = false;
-      }
-    } else if (message.type === "DOWNLOAD_COMPLETE") {
-      // Download finished — model is now cached
-      modelCached = true;
-      isDownloading = false;
-      progressText = "Download Complete!";
-      setTimeout(() => {
-        showProgress = false;
-      }, 2000);
-    } else if (message.type === "RECORDING_STARTED") {
-      isLoading = false;
-      progressText = "Recording Active!";
-      setRecordingState(true, pendingTabId);
-
-      if (autoCloseOnReady) {
-        setTimeout(() => {
-          window.close();
-        }, 800);
-      }
-    }
-  }
 
   function onProfileChange(value) {
     selectedProfileId = value;
@@ -132,11 +141,18 @@
       return;
     }
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: "CHECK_MODEL_CACHED",
-        profile: profile,
+      const explicitDevice =
+        profile.backend === "remote"
+          ? "remote"
+          : profile.backend === "webgpu"
+            ? "webgpu"
+            : "wasm";
+      const isCached = await sendMessage("CHECK_MODEL_CACHED", {
+        model_id: profile.model_id,
+        device: explicitDevice,
+        quantization: profile.quantization,
       });
-      modelCached = response?.cached ?? false;
+      modelCached = isCached;
     } catch (e) {
       modelCached = false;
     }
@@ -152,10 +168,12 @@
     showProgress = true;
     progressPercent = 0;
     progressText = "Downloading Model...";
-    chrome.runtime.sendMessage({
-      type: "REQUEST_DOWNLOAD",
-      profile: profile,
-    });
+
+    // Pass index since background finds the profile by index
+    const profileIndex = profiles.findIndex((p) => p.id === selectedProfileId);
+    sendMessage("REQUEST_DOWNLOAD", {
+      profileIndex: profileIndex >= 0 ? profileIndex : 0,
+    }).catch(() => {});
   }
 
   async function toggleRecording() {
@@ -181,11 +199,13 @@
         isLoading = true; // Set loading state
         pendingTabId = tab.id; // Store tab ID for later
 
-        chrome.runtime.sendMessage({
-          type: "REQUEST_START",
-          tabId: tab.id,
-          profile: profile, // Pass full profile
-        });
+        const profileIndex = profiles.findIndex(
+          (p) => p.id === selectedProfileId,
+        );
+
+        sendMessage("REQUEST_START", {
+          profileIndex: profileIndex >= 0 ? profileIndex : 0,
+        }).catch(() => {});
 
         autoCloseOnReady = true;
       } else {
@@ -195,7 +215,7 @@
       }
     } else {
       // Stop
-      chrome.runtime.sendMessage({ type: "REQUEST_STOP" });
+      sendMessage("REQUEST_STOP", undefined).catch(() => {});
       setRecordingState(false);
       isLoading = false;
     }

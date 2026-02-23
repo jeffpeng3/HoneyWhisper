@@ -2,6 +2,7 @@ import { MicVAD } from "@ricky0123/vad-web";
 import { BaseTranslator } from "@/pipeline/Translation/BaseTranslator.js";
 import { BaseASR } from "@/pipeline/ASR/BaseASR.js";
 import "@/pipeline/registry_loader.js";
+import { sendMessage, onMessage } from "$lib/messaging";
 
 console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 
@@ -110,10 +111,11 @@ class MultiFileProgress {
 const progressTracker = new MultiFileProgress();
 
 function reportProgressRaw(data) {
-    chrome.runtime.sendMessage({
-        type: 'MODEL_LOADING',
-        target: 'popup',
-        data
+    sendMessage('DOWNLOAD_PROGRESS', {
+        progress: data.progress || 0,
+        file: data.file || 'System',
+        status: data.status,
+        error: data.error
     }).catch(() => { });
 }
 
@@ -219,13 +221,11 @@ async function processAudio(audio, isFinal) {
         // OPTIONAL: Send "Interim" update immediately if translation is enabled
         // This allows the user to see the original text while waiting for translation
         if (text.length > 0 && pipelineConfig.translation.enabled) {
-            chrome.runtime.sendMessage({
-                target: 'content',
-                type: 'SUBTITLE_UPDATE',
+            sendMessage('RESULT', {
                 text: text,
                 translatedText: null,
                 isFinal: false // Mark as not final so it doesn't get added to history yet
-            }).catch((err) => { });
+            }).catch(() => { });
         }
 
         // 2. Translate
@@ -253,13 +253,11 @@ async function processAudio(audio, isFinal) {
         }
 
         if (text.length > 0) {
-            chrome.runtime.sendMessage({
-                target: 'content',
-                type: 'SUBTITLE_UPDATE',
+            sendMessage('RESULT', {
                 text: text,
                 translatedText: translatedText,
                 isFinal: isFinal
-            }).catch((err) => { });
+            }).catch(() => { });
         }
 
     } catch (err) {
@@ -282,9 +280,7 @@ async function processQueue() {
 async function generate(audio, isFinal = true) {
     if (audioQueue.length >= MAX_QUEUE_SIZE) {
         console.warn("Processing busy, queue full. Dropping request.");
-        chrome.runtime.sendMessage({
-            target: 'content',
-            type: 'PERFORMANCE_WARNING',
+        sendMessage('PERFORMANCE_WARNING', {
             message: 'System overload. Try smaller model.'
         }).catch(() => { });
         return;
@@ -357,17 +353,17 @@ async function startRecording(streamId) {
             model: 'v5',
             onSpeechStart: () => {
                 console.log("VAD: Speech Start");
-                chrome.runtime.sendMessage({ type: 'VAD_STATUS', status: 'ACTIVE' }).catch(() => { });
+                sendMessage('VAD_STATUS', { status: 'speech' }).catch(() => { });
             },
             onSpeechEnd: (audio) => {
                 const lenSec = audio.length / 16000;
                 console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
-                chrome.runtime.sendMessage({ type: 'VAD_STATUS', status: 'INACTIVE' }).catch(() => { });
+                sendMessage('VAD_STATUS', { status: 'quiet' }).catch(() => { });
                 generate(audio, true);
             },
             onVADMisfire: () => {
                 console.log("VAD: Misfire");
-                chrome.runtime.sendMessage({ type: 'VAD_STATUS', status: 'INACTIVE' }).catch(() => { });
+                sendMessage('VAD_STATUS', { status: 'idle' }).catch(() => { });
             }
         });
 
@@ -375,7 +371,7 @@ async function startRecording(streamId) {
         console.log("VAD Started");
         console.log("VAD Started");
         // Broadcast to all (popup and background)
-        chrome.runtime.sendMessage({ type: 'RECORDING_STARTED' }).catch(() => { });
+        sendMessage('RECORDING_STARTED', undefined).catch(() => { });
 
     } catch (err) {
         console.error("Error starting recording:", err);
@@ -401,128 +397,94 @@ function stopRecording() {
         sourceNode = null;
     }
 
-    chrome.runtime.sendMessage({
-        target: 'content',
-        type: 'SUBTITLE_UPDATE',
-        text: ''
-    }).catch(() => { });
+    sendMessage('CLEAR', undefined).catch(() => { });
 
     releaseASR().catch(err => console.error("Error releasing pipeline:", err));
 }
 
-// Message Listener
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    (async () => {
-        if (message.target === 'offscreen') {
-            if (message.type === 'START_RECORDING') {
-                const settings = message.settings || {};
+onMessage('START_RECORDING', async (message) => {
+    const settings = message.data.pipelineConfig || {};
 
-                // Update Config
-                if (settings.language) pipelineConfig.asr.language = settings.language;
-                else if (message.language) pipelineConfig.asr.language = message.language;
+    // Update Config
+    if (settings.language) pipelineConfig.asr.language = settings.language;
+    if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
+    if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;
 
-                if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
-                else if (message.model_id) pipelineConfig.asr.model_id = message.model_id;
+    // New Settings
+    if (settings.asrBackend) pipelineConfig.asr.type = settings.asrBackend;
+    if (settings.remoteEndpoint) pipelineConfig.asr.endpoint = settings.remoteEndpoint;
+    if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
 
-                if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;
-                else if (message.quantization) pipelineConfig.asr.quantization = message.quantization;
+    if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
+    if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
+    if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
+    if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
 
-                // New Settings
-                if (settings.asrBackend) pipelineConfig.asr.type = settings.asrBackend;
-                if (settings.remoteEndpoint) pipelineConfig.asr.endpoint = settings.remoteEndpoint;
-                if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
+    await startRecording(message.data.streamId);
+});
 
-                if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
-                if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
-                if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
-                if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
+onMessage('STOP_RECORDING', async () => {
+    stopRecording();
+});
 
-                startRecording(message.data);
-            } else if (message.type === 'STOP_RECORDING') {
-                stopRecording();
-            } else if (message.type === 'UPDATE_SETTINGS') {
-                const settings = message.settings;
-                if (settings) {
-                    if (settings.language) pipelineConfig.asr.language = settings.language;
+onMessage('UPDATE_SETTINGS', async (message) => {
+    const settings = message.data || {};
 
-                    if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
-                    if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;
+    if (settings.language) pipelineConfig.asr.language = settings.language;
+    if (settings.model_id) pipelineConfig.asr.model_id = settings.model_id;
+    if (settings.quantization) pipelineConfig.asr.quantization = settings.quantization;
 
-                    if (settings.asrBackend) pipelineConfig.asr.type = settings.asrBackend;
-                    if (settings.remoteEndpoint) pipelineConfig.asr.endpoint = settings.remoteEndpoint;
-                    if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
+    if (settings.asrBackend) pipelineConfig.asr.type = settings.asrBackend;
+    if (settings.remoteEndpoint) pipelineConfig.asr.endpoint = settings.remoteEndpoint;
+    if (settings.remoteKey) pipelineConfig.asr.key = settings.remoteKey;
 
-                    if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
-                    if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
-                    if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
-                    if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
+    if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
+    if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
+    if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
+    if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
 
-                    if (settings.vad) {
-                        pipelineConfig.vad = { ...pipelineConfig.vad, ...settings.vad };
-                    }
-                }
-            } else if (message.type === 'CLEAR_CACHE') {
-                try {
-                    const names = await caches.keys();
-                    await Promise.all(names.map(name => caches.delete(name)));
-                    console.log("Caches cleared:", names);
-                } catch (err) {
-                    console.error("Failed to clear cache:", err);
-                }
-            } else if (message.type === 'GET_CACHED_MODELS') {
-                try {
-                    const keys = await caches.keys();
-                    const models = keys.filter(k => k.startsWith('transformers-cache-') || k.startsWith('k2-models'));
-                    chrome.runtime.sendMessage({
-                        target: 'popup',
-                        type: 'CACHED_MODELS_LIST',
-                        models: models
-                    });
-                } catch (err) {
-                    console.error("Failed to get cached models:", err);
-                }
-            } else if (message.type === 'DOWNLOAD_MODEL') {
-                // Download-only: fetch model files to cache without starting recording
-                const settings = message.settings || {};
-                let desiredType = settings.asrBackend || 'webgpu';
-                const modelId = settings.model_id || '';
+    if (settings.vad) {
+        pipelineConfig.vad = { ...pipelineConfig.vad, ...settings.vad };
+    }
+});
 
-                if (modelId.includes('k2')) {
-                    desiredType = 'k2';
-                }
 
-                try {
-                    const TargetClass = BaseASR.get(desiredType);
-                    if (!TargetClass) {
-                        throw new Error(`ASR Backend '${desiredType}' not found`);
-                    }
+onMessage('DOWNLOAD_MODEL', async (message) => {
+    // Download-only: fetch model files to cache without starting recording
+    const settings = message.data.pipelineConfig || {};
+    let desiredType = settings.asrBackend || 'webgpu';
+    const modelId = settings.model_id || '';
 
-                    const tempService = BaseASR.create(desiredType);
-                    const device = desiredType === 'wasm' ? 'wasm' : 'webgpu';
+    if (modelId.includes('k2')) {
+        desiredType = 'k2';
+    }
 
-                    reportProgress({ status: 'initiate', name: 'Download', file: 'Initializing Download...' });
-
-                    await tempService.download({
-                        model_id: modelId,
-                        quantization: settings.quantization || 'q4',
-                        device: device,
-                        language: settings.language || 'en',
-                        progress_callback: (data) => reportProgress(data)
-                    });
-
-                    reportProgress({ status: 'done' });
-                    console.log(`Model downloaded to cache: ${modelId}`);
-
-                    // Notify popup that download is complete
-                    chrome.runtime.sendMessage({
-                        type: 'DOWNLOAD_COMPLETE',
-                        target: 'popup'
-                    }).catch(() => { });
-                } catch (err) {
-                    console.error("Download Error:", err);
-                    reportProgress({ status: 'error', error: err.message });
-                }
-            }
+    try {
+        const TargetClass = BaseASR.get(desiredType);
+        if (!TargetClass) {
+            throw new Error(`ASR Backend '${desiredType}' not found`);
         }
-    })();
+
+        const tempService = BaseASR.create(desiredType);
+        const device = desiredType === 'wasm' ? 'wasm' : 'webgpu';
+
+        reportProgress({ status: 'initiate', name: 'Download', file: 'Initializing Download...' });
+
+        await tempService.download({
+            model_id: modelId,
+            quantization: settings.quantization || 'q4',
+            device: device,
+            language: settings.language || 'en',
+            progress_callback: (data) => reportProgress(data)
+        });
+
+        reportProgress({ status: 'done' });
+        console.log(`Model downloaded to cache: ${modelId}`);
+
+        // Notify popup that download is complete
+        sendMessage('DOWNLOAD_COMPLETE', undefined).catch(() => { });
+    } catch (err) {
+        console.error("Download Error:", err);
+        reportProgress({ status: 'error', error: err.message });
+    }
 });

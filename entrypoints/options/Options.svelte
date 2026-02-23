@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { ModelRegistry, DEFAULT_PROFILES } from "$lib/ModelRegistry.js";
+  import { sendMessage } from "$lib/messaging";
   import ModelHubCard from "./ModelHubCard.svelte";
   import AdvancedSettings from "./AdvancedSettings.svelte";
   import { ModeWatcher } from "mode-watcher";
@@ -158,30 +159,35 @@
         showOriginal,
         vad: vadSettings,
       },
-      () => {
+      async () => {
         showStatus("Settings Saved");
-        // Notify others
-        chrome.runtime
-          .sendMessage({
-            target: "content",
-            type: "UPDATE_SETTINGS",
-            settings: { fontSize: String(fontSize), historyLines },
-          })
-          .catch(() => {});
-        chrome.runtime
-          .sendMessage({
-            target: "offscreen",
-            type: "UPDATE_SETTINGS",
-            settings: {
-              translationEnabled,
-              translationService,
-              targetLanguage,
-              language,
-              showOriginal,
-              vad: vadSettings,
-            },
-          })
-          .catch(() => {});
+        // Notify offscreen
+        sendMessage("UPDATE_SETTINGS", {
+          settings: {
+            translationEnabled,
+            translationService,
+            targetLanguage,
+            language,
+            showOriginal,
+            vad: vadSettings,
+          },
+        }).catch(() => {});
+
+        // Notify content scripts in all tabs
+        try {
+          const tabs = await chrome.tabs.query({});
+          for (const tab of tabs) {
+            chrome.tabs
+              .sendMessage(tab.id, {
+                target: "content",
+                type: "UPDATE_SETTINGS",
+                settings: { fontSize: String(fontSize), historyLines },
+              })
+              .catch(() => {});
+          }
+        } catch (e) {
+          console.error("Failed to broadcast settings to tabs", e);
+        }
       },
     );
   }
@@ -252,9 +258,8 @@
   async function clearCache() {
     if (confirm("Are you sure you want to delete all downloaded models?")) {
       try {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-        showStatus(`Cleared ${keys.length} cache(s).`);
+        await sendMessage("CLEAR_CACHE", undefined);
+        showStatus(`Cleared all caches.`);
         installedModels = [];
       } catch (err) {
         alert("Error clearing cache: " + err.message);
@@ -265,19 +270,9 @@
   async function listModels() {
     installedModels = [];
     try {
-      if (await caches.has("transformers-cache")) {
-        const cache = await caches.open("transformers-cache");
-        const requests = await cache.keys();
-        const modelsSet = new Set();
-        requests.forEach((req) => {
-          const match = req.url.match(/huggingface\.co\/([^/]+\/[^/]+)\//);
-          if (match && match[1]) modelsSet.add(match[1]);
-        });
-        installedModels =
-          modelsSet.size > 0 ? Array.from(modelsSet) : ["Cache empty."];
-      } else {
-        installedModels = ["No cache found."];
-      }
+      const models = await sendMessage("GET_CACHED_MODELS", undefined);
+      installedModels =
+        models && models.length > 0 ? models : ["No models cached."];
     } catch (err) {
       installedModels = ["Error: " + err.message];
     }
@@ -293,8 +288,7 @@
         await chrome.storage.sync.clear();
         await chrome.storage.local.clear();
 
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
+        await sendMessage("CLEAR_CACHE", undefined);
 
         showStatus("All data reset. Reloading defaults...");
 
