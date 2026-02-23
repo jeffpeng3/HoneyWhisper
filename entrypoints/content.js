@@ -1,13 +1,14 @@
 import { onMessage } from '$lib/messaging';
+import { getSettings } from '$lib/settings';
 
 export default defineContentScript({
     matches: ['<all_urls>'],
     registration: 'runtime',
-    main() {
+    async main() {
         if (window.honeyWhisperInitialized) return;
         window.honeyWhisperInitialized = true;
 
-        function createOverlay() {
+        async function createOverlay() {
             if (document.getElementById('webgpu-subtitle-overlay')) return;
 
             const div = document.createElement('div');
@@ -103,11 +104,10 @@ export default defineContentScript({
             });
 
             // Load settings
-            browser.storage.sync.get('fontSize', (items) => {
-                if (items.fontSize) {
-                    div.style.fontSize = `${items.fontSize}px`;
-                }
-            });
+            const settings = await getSettings();
+            if (settings.fontSize) {
+                div.style.fontSize = `${settings.fontSize}px`;
+            }
 
             document.body.appendChild(div);
         }
@@ -253,10 +253,9 @@ export default defineContentScript({
         });
 
         // Initial Settings Load
-        browser.storage.sync.get(['historyLines'], (items) => {
-            if (items.historyLines !== undefined) {
-                maxHistoryLines = parseInt(items.historyLines);
-            }
-        });
+        const initialSettings = await getSettings();
+        if (initialSettings.historyLines !== undefined) {
+            maxHistoryLines = parseInt(initialSettings.historyLines);
+        }
     }
 });

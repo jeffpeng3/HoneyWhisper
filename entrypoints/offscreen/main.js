@@ -3,6 +3,7 @@ import { BaseTranslator } from "@/pipeline/Translation/BaseTranslator.js";
 import { BaseASR } from "@/pipeline/ASR/BaseASR.js";
 import "@/pipeline/registry_loader.js";
 import { sendMessage, onMessage } from "$lib/messaging";
+import { browser } from 'wxt/browser';
 
 console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
 
@@ -301,7 +302,7 @@ async function preloadVAD() {
     // but fetching them ensures they are in browser cache.
     for (const asset of assets) {
         try {
-            const url = chrome.runtime.getURL(`assets/${asset}`);
+            const url = browser.runtime.getURL(`assets/${asset}`);
             await fetch(url);
         } catch (e) {
             console.warn(`[Preload] Failed to fetch ${asset}:`, e);
@@ -344,8 +345,8 @@ async function startRecording(streamId) {
 
         vadInstance = await MicVAD.new({
             getStream: () => stream,
-            baseAssetPath: chrome.runtime.getURL('/'),
-            onnxWASMBasePath: chrome.runtime.getURL('/'),
+            baseAssetPath: browser.runtime.getURL('/'),
+            onnxWASMBasePath: browser.runtime.getURL('/'),
             positiveSpeechThreshold: pipelineConfig.vad.positiveSpeechThreshold,
             negativeSpeechThreshold: pipelineConfig.vad.negativeSpeechThreshold,
             redemptionMs: pipelineConfig.vad.redemptionMs,

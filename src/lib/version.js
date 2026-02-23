@@ -1,4 +1,4 @@
-
+import { browser } from 'wxt/browser';
 /**
  * Compares two semantic version strings.
  * Returns:
@@ -31,7 +31,7 @@ export function compareVersions(v1, v2) {
  */
 export async function checkUpdate() {
     try {
-        const manifest = chrome.runtime.getManifest();
+        const manifest = browser.runtime.getManifest();
         const currentVersion = manifest.version;
 
         const response = await fetch('https://api.github.com/repos/jeffpeng3/HoneyWhisper/releases/latest');
@@ -55,7 +55,7 @@ export async function checkUpdate() {
         return {
             hasUpdate: false,
             latestVersion: '0.0.0',
-            currentVersion: chrome.runtime.getManifest().version,
+            currentVersion: browser.runtime.getManifest().version,
             releaseUrl: '',
             error: error.message
         };

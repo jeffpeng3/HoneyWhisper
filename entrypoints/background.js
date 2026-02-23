@@ -1,4 +1,5 @@
 import { sendMessage, onMessage } from '$lib/messaging';
+import { getSettings } from '$lib/settings';
 
 export default defineBackground(() => {
     const offscreenUrl = '/offscreen.html';
@@ -47,12 +48,7 @@ export default defineBackground(() => {
 
         if (profile) {
             // Construct settings from passed profile + global settings
-            const globalSettings = await browser.storage.sync.get({
-                language: 'en',
-                translationEnabled: false,
-                targetLanguage: 'zh-TW',
-                showOriginal: true
-            });
+            const globalSettings = await getSettings();
 
             settings = {
                 ...globalSettings,
@@ -64,17 +60,7 @@ export default defineBackground(() => {
             };
         } else {
             // Fallback or Legacy path
-            settings = await browser.storage.sync.get({
-                language: 'en',
-                model_id: 'onnx-community/whisper-tiny',
-                quantization: 'q4',
-                asrBackend: 'webgpu',
-                remoteEndpoint: '',
-                remoteKey: '',
-                translationEnabled: false,
-                targetLanguage: 'zh-TW',
-                showOriginal: true
-            });
+            settings = await getSettings();
         }
 
         sendMessage('START_RECORDING', {
@@ -113,7 +99,7 @@ export default defineBackground(() => {
     onMessage('REQUEST_DOWNLOAD', async (message) => {
         await setupOffscreenDocument();
         const profileIndex = message.data.profileIndex;
-        const { profiles } = await browser.storage.sync.get({ profiles: [] });
+        const { profiles } = await getSettings();
         const targetProfile = profiles[profileIndex] || {};
 
         sendMessage('DOWNLOAD_MODEL', {
@@ -143,7 +129,7 @@ export default defineBackground(() => {
         });
 
         const profileIndex = message.data.profileIndex;
-        const { profiles } = await browser.storage.sync.get({ profiles: [] });
+        const { profiles } = await getSettings();
         const targetProfile = profiles[profileIndex];
 
         await startCapture(targetTabId, targetProfile);
@@ -171,6 +157,20 @@ export default defineBackground(() => {
             browser.action.setBadgeText({ text: '' });
         }
     });
+
+    // --- Relays from Offscreen to Content Script ---
+    onMessage('RESULT', (message) => {
+        if (currentTabId) sendMessage('RESULT', message.data, currentTabId).catch(() => { });
+    });
+
+    onMessage('CLEAR', () => {
+        if (currentTabId) sendMessage('CLEAR', undefined, currentTabId).catch(() => { });
+    });
+
+    onMessage('PERFORMANCE_WARNING', (message) => {
+        if (currentTabId) sendMessage('PERFORMANCE_WARNING', message.data, currentTabId).catch(() => { });
+    });
+
 
     onMessage('CHECK_MODEL_CACHED', async (message) => {
         const targetConfig = message.data;

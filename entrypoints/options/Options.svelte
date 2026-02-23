@@ -1,7 +1,9 @@
 <script>
   import { onMount } from "svelte";
   import { ModelRegistry, DEFAULT_PROFILES } from "$lib/ModelRegistry.js";
+  import { browser } from "wxt/browser";
   import { sendMessage } from "$lib/messaging";
+  import { getSettings, extensionStorage } from "$lib/settings";
   import ModelHubCard from "./ModelHubCard.svelte";
   import AdvancedSettings from "./AdvancedSettings.svelte";
   import { ModeWatcher } from "mode-watcher";
@@ -90,41 +92,19 @@
     handleCheckUpdate();
   });
 
-  function loadSettings() {
-    chrome.storage.sync.get(
-      {
-        profiles: DEFAULT_PROFILES,
-        activeProfileId: DEFAULT_PROFILES[0].id,
-        language: "en",
-        fontSize: "24",
-        historyLines: 1,
-        translationEnabled: false,
-        translationService: "google",
-        targetLanguage: "zh-TW",
-        showOriginal: true,
-        // VAD Defaults
-        vad: {
-          positiveSpeechThreshold: 0.8,
-          negativeSpeechThreshold: 0.45,
-          minSpeechMs: 100,
-          redemptionMs: 50,
-        },
-      },
-      (items) => {
-        profiles = items.profiles || DEFAULT_PROFILES;
-        language = items.language;
-        fontSize = parseInt(items.fontSize);
-        historyLines = parseInt(items.historyLines);
-        translationEnabled = items.translationEnabled;
-        translationService = items.translationService || "google";
-        targetLanguage = items.targetLanguage;
-        showOriginal =
-          items.showOriginal !== undefined ? items.showOriginal : true;
+  async function loadSettings() {
+    const items = await getSettings();
+    profiles = items.profiles || DEFAULT_PROFILES;
+    language = items.language;
+    fontSize = parseInt(items.fontSize);
+    historyLines = parseInt(items.historyLines);
+    translationEnabled = items.translationEnabled;
+    translationService = items.translationService || "google";
+    targetLanguage = items.targetLanguage;
+    showOriginal = items.showOriginal !== undefined ? items.showOriginal : true;
 
-        // Merge defaults just in case
-        vadSettings = { ...vadSettings, ...(items.vad || {}) };
-      },
-    );
+    // Merge defaults just in case
+    vadSettings = { ...vadSettings, ...(items.vad || {}) };
   }
 
   async function loadHubModels() {
@@ -146,50 +126,47 @@
     }
   }
 
-  function saveSettings() {
-    chrome.storage.sync.set(
-      {
-        profiles,
-        language,
-        fontSize: String(fontSize),
-        historyLines,
+  async function saveSettings() {
+    await Promise.all([
+      extensionStorage.setItem("profiles", profiles),
+      extensionStorage.setItem("language", language),
+      extensionStorage.setItem("fontSize", String(fontSize)),
+      extensionStorage.setItem("historyLines", historyLines),
+      extensionStorage.setItem("translationEnabled", translationEnabled),
+      extensionStorage.setItem("translationService", translationService),
+      extensionStorage.setItem("targetLanguage", targetLanguage),
+      extensionStorage.setItem("showOriginal", showOriginal),
+      extensionStorage.setItem("vad", vadSettings),
+    ]);
+
+    showStatus("Settings Saved");
+    // Notify offscreen
+    sendMessage("UPDATE_SETTINGS", {
+      settings: {
         translationEnabled,
         translationService,
         targetLanguage,
+        language,
         showOriginal,
         vad: vadSettings,
       },
-      async () => {
-        showStatus("Settings Saved");
-        // Notify offscreen
-        sendMessage("UPDATE_SETTINGS", {
-          settings: {
-            translationEnabled,
-            translationService,
-            targetLanguage,
-            language,
-            showOriginal,
-            vad: vadSettings,
-          },
-        }).catch(() => {});
+    }).catch(() => {});
 
-        // Notify content scripts in all tabs
-        try {
-          const tabs = await chrome.tabs.query({});
-          for (const tab of tabs) {
-            chrome.tabs
-              .sendMessage(tab.id, {
-                target: "content",
-                type: "UPDATE_SETTINGS",
-                settings: { fontSize: String(fontSize), historyLines },
-              })
-              .catch(() => {});
-          }
-        } catch (e) {
-          console.error("Failed to broadcast settings to tabs", e);
-        }
-      },
-    );
+    // Notify content scripts in all tabs
+    try {
+      const tabs = await browser.tabs.query({});
+      for (const tab of tabs) {
+        sendMessage(
+          "UPDATE_SETTINGS",
+          {
+            settings: { fontSize: String(fontSize), historyLines },
+          },
+          tab.id,
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.error("Failed to broadcast settings to tabs", e);
+    }
   }
 
   function showStatus(msg) {
@@ -285,8 +262,8 @@
       )
     ) {
       try {
-        await chrome.storage.sync.clear();
-        await chrome.storage.local.clear();
+        await browser.storage.sync.clear();
+        await browser.storage.local.clear();
 
         await sendMessage("CLEAR_CACHE", undefined);
 
@@ -623,7 +600,8 @@
               <div class="flex flex-col">
                 <Label>Check for Updates</Label>
                 <span class="text-xs text-muted-foreground"
-                  >Current Version: {chrome.runtime.getManifest().version}</span
+                  >Current Version: {browser.runtime.getManifest()
+                    .version}</span
                 >
               </div>
               <Button

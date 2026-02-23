@@ -1,8 +1,10 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import { DEFAULT_PROFILES, ModelRegistry } from "$lib/ModelRegistry.js";
+  import { browser } from "wxt/browser";
   import { ModeWatcher } from "mode-watcher";
   import { sendMessage, onMessage } from "$lib/messaging";
+  import { getSettings, extensionStorage } from "$lib/settings";
 
   // Shadcn Components
   import { Button } from "$lib/components/ui/button/index.js";
@@ -38,23 +40,16 @@
 
   onMount(async () => {
     // 1. Load Profiles & Settings
-    chrome.storage.sync.get(
-      {
-        profiles: DEFAULT_PROFILES,
-        activeProfileId: DEFAULT_PROFILES[0].id,
-      },
-      (items) => {
-        profiles = items.profiles || DEFAULT_PROFILES;
-        // Ensure default exists in list
-        if (!profiles.find((p) => p.id === items.activeProfileId)) {
-          selectedProfileId = profiles[0] ? profiles[0].id : "";
-        } else {
-          selectedProfileId = items.activeProfileId;
-        }
-        // Check if current profile's model is cached
-        checkModelStatus();
-      },
-    );
+    const settings = await getSettings();
+    profiles = settings.profiles || DEFAULT_PROFILES;
+    // Ensure default exists in list
+    if (!profiles.find((p) => p.id === settings.activeProfileId)) {
+      selectedProfileId = profiles[0] ? profiles[0].id : "";
+    } else {
+      selectedProfileId = settings.activeProfileId;
+    }
+    // Check if current profile's model is cached
+    checkModelStatus();
 
     // 2. Check recording state
     try {
@@ -126,10 +121,10 @@
     cleanupListeners.forEach((cleanup) => cleanup());
   });
 
-  function onProfileChange(value) {
+  async function onProfileChange(value) {
     selectedProfileId = value;
     // Save selection
-    chrome.storage.sync.set({ activeProfileId: selectedProfileId });
+    await extensionStorage.setItem("activeProfileId", selectedProfileId);
     checkModelStatus();
   }
 
@@ -187,7 +182,7 @@
       }
 
       // Start
-      const tabs = await chrome.tabs.query({
+      const tabs = await browser.tabs.query({
         active: true,
         currentWindow: true,
       });
@@ -226,7 +221,7 @@
 
     if (recording && tabId) {
       try {
-        const tab = await chrome.tabs.get(tabId);
+        const tab = await browser.tabs.get(tabId);
         activeTabTitle =
           tab.title.length > 25
             ? tab.title.substring(0, 25) + "..."
@@ -244,19 +239,19 @@
   async function activateTab(e) {
     e.preventDefault();
     if (activeTabId) {
-      const tab = await chrome.tabs.get(activeTabId);
+      const tab = await browser.tabs.get(activeTabId);
       if (tab) {
-        chrome.tabs.update(tab.id, { active: true });
-        chrome.windows.update(tab.windowId, { focused: true });
+        browser.tabs.update(tab.id, { active: true });
+        browser.windows.update(tab.windowId, { focused: true });
       }
     }
   }
 
   function openOptions() {
-    if (chrome.runtime.openOptionsPage) {
-      chrome.runtime.openOptionsPage();
+    if (browser.runtime.openOptionsPage) {
+      browser.runtime.openOptionsPage();
     } else {
-      window.open(chrome.runtime.getURL("options.html"));
+      window.open(browser.runtime.getURL("options.html"));
     }
     window.close();
   }

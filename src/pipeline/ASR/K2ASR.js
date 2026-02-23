@@ -1,12 +1,13 @@
 import { BaseASR } from "./BaseASR.js";
 import { MelFeatureExtractor } from "./MelFeatureExtractor.js";
 import * as ort from 'onnxruntime-web';
+import { browser } from 'wxt/browser';
 
 ort.env.wasm.wasmPaths = {
-    'ort-wasm-simd-threaded.jsep.wasm': chrome.runtime.getURL('ort-wasm-simd-threaded.jsep.wasm'),
-    'ort-wasm-simd-threaded.jsep.mjs': chrome.runtime.getURL('ort-wasm-simd-threaded.jsep.mjs'),
-    'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('ort-wasm-simd-threaded.wasm'),
-    'ort-wasm-simd-threaded.mjs': chrome.runtime.getURL('ort-wasm-simd-threaded.mjs'),
+    'ort-wasm-simd-threaded.jsep.wasm': browser.runtime.getURL('ort-wasm-simd-threaded.jsep.wasm'),
+    'ort-wasm-simd-threaded.jsep.mjs': browser.runtime.getURL('ort-wasm-simd-threaded.jsep.mjs'),
+    'ort-wasm-simd-threaded.wasm': browser.runtime.getURL('ort-wasm-simd-threaded.wasm'),
+    'ort-wasm-simd-threaded.mjs': browser.runtime.getURL('ort-wasm-simd-threaded.mjs'),
 };
 
 // Constants for ReazonSpeech v2
