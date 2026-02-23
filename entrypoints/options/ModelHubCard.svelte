@@ -2,6 +2,7 @@
     import * as Card from "$lib/components/ui/card/index.js";
     import { Button } from "$lib/components/ui/button/index.js";
     import { Badge } from "$lib/components/ui/badge/index.js";
+    import { i18n } from "#i18n";
 
     let { model, onCreate } = $props();
 </script>
@@ -27,8 +28,10 @@
             href={model.homepage || `https://huggingface.co/${model.id}`}
             target="_blank"
         >
-            View on HF
+            {i18n.t("hub.viewOnHF")}
         </Button>
-        <Button size="sm" onclick={onCreate}>Create Profile</Button>
+        <Button size="sm" onclick={onCreate}
+            >{i18n.t("hub.createProfileBtn")}</Button
+        >
     </Card.Footer>
 </Card.Root>

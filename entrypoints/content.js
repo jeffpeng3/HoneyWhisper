@@ -1,5 +1,6 @@
 import { onMessage } from '$lib/messaging';
 import { getSettings } from '$lib/settings';
+import { i18n } from '#i18n';
 
 export default defineContentScript({
     matches: ['<all_urls>'],
@@ -34,7 +35,7 @@ export default defineContentScript({
             div.style.textShadow = '0px 0px 4px black';
             div.style.transition = 'opacity 0.3s';
 
-            div.innerHTML = '<div id="whisper-history" style="color: #bbb; font-size: 0.85em; margin-bottom: 4px;"></div><div id="whisper-current">Initializing HoneyWhisper...</div>';
+            div.innerHTML = `<div id="whisper-history" style="color: #bbb; font-size: 0.85em; margin-bottom: 4px;"></div><div id="whisper-current">${i18n.t('content.initializing')}</div>`;
 
             // Drag Logic
             let isMouseDown = false;
@@ -208,18 +209,18 @@ export default defineContentScript({
                 el.style.display = 'block';
                 if (data.status === 'progress' || (data.progress && data.progress > 0 && data.progress < 100)) {
                     if (data.progress) {
-                        currentEl.innerText = `Loading: ${Math.round(data.progress)}%`;
+                        currentEl.innerText = `${i18n.t('content.loading')}${Math.round(data.progress)}%`;
                     }
                 } else if (data.status === 'done' || data.progress === 100) {
-                    currentEl.innerText = 'Model Ready';
+                    currentEl.innerText = i18n.t('content.modelReady');
                     setTimeout(() => {
-                        if (currentEl.innerText === 'Model Ready') {
+                        if (currentEl.innerText === i18n.t('content.modelReady')) {
                             currentEl.innerText = '';
                             if (historyBuffer.length === 0) el.style.display = 'none';
                         }
                     }, 2000);
                 } else if (data.status === 'initiate') {
-                    currentEl.innerText = 'Initiating Model...';
+                    currentEl.innerText = i18n.t('content.initiatingModel');
                 }
             }
         });
@@ -241,7 +242,7 @@ export default defineContentScript({
                     el.insertBefore(warningEl, el.firstChild);
                 }
 
-                warningEl.innerText = "⚠️ System Overload: Processing Busy";
+                warningEl.innerText = i18n.t('content.systemOverload');
 
                 // Auto-hide
                 setTimeout(() => {

@@ -9,6 +9,7 @@
   import { ModeWatcher } from "mode-watcher";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { checkUpdate } from "$lib/version.js";
+  import { i18n } from "#i18n";
 
   // Shadcn UI Components
   import { Button } from "$lib/components/ui/button/index.js";
@@ -60,25 +61,25 @@
   };
 
   const LANGUAGES = [
-    { code: "ja", name: "Japanese (日本語)" },
+    { code: "ja", name: "日本語" },
     { code: "en", name: "English" },
-    { code: "zh", name: "Chinese (中文)" },
-    { code: "es", name: "Spanish" },
-    { code: "fr", name: "French" },
-    { code: "de", name: "German" },
-    { code: "ko", name: "Korean" },
-    { code: "auto", name: "Auto Detect(不穩定)" },
+    { code: "zh", name: "中文" },
+    { code: "es", name: "Español" },
+    { code: "fr", name: "Français" },
+    { code: "de", name: "Deutsch" },
+    { code: "ko", name: "한국어" },
+    { code: "auto", name: i18n.t("options.autoDetect") },
   ];
 
   const TARGET_LANGUAGES = [
-    { code: "zh-TW", name: "Traditional Chinese (繁體中文)" },
-    { code: "zh-CN", name: "Simplified Chinese (简体中文)" },
+    { code: "zh-TW", name: "繁體中文" },
+    { code: "zh-CN", name: "简体中文" },
     { code: "en", name: "English" },
-    { code: "ja", name: "Japanese (日本語)" },
-    { code: "ko", name: "Korean (한국어)" },
-    { code: "es", name: "Spanish" },
-    { code: "fr", name: "French" },
-    { code: "de", name: "German" },
+    { code: "ja", name: "日本語" },
+    { code: "ko", name: "한국어" },
+    { code: "es", name: "Español" },
+    { code: "fr", name: "Français" },
+    { code: "de", name: "Deutsch" },
   ];
 
   const TRANSLATION_SERVICES = [
@@ -113,9 +114,7 @@
       const { models, error } = await ModelRegistry.fetchModels();
       hubModels = models;
       if (error) {
-        showStatus(
-          "Failed to load latest models from GitHub. Using local backup.",
-        );
+        showStatus(i18n.t("hub.loadFailed"));
         console.warn("Hub Load Error:", error);
       }
     } catch (e) {
@@ -139,7 +138,7 @@
       extensionStorage.setItem("vad", vadSettings),
     ]);
 
-    showStatus("Settings Saved");
+    showStatus(i18n.t("messages.settingsSaved"));
     // Notify offscreen
     sendMessage("UPDATE_SETTINGS", {
       settings: {
@@ -207,7 +206,7 @@
   }
 
   function deleteProfile(id) {
-    if (confirm("Delete this profile?")) {
+    if (confirm(i18n.t("profiles.deleteConfirm"))) {
       profiles = profiles.filter((p) => p.id !== id);
       saveSettings();
     }
@@ -228,18 +227,18 @@
     saveSettings();
     activeTab = "profiles";
     editProfile(newProfile); // Jump to edit page
-    showStatus(`Created profile: ${newProfile.name}`);
+    showStatus(`${i18n.t("messages.profileCreated")} ${newProfile.name}`);
   }
 
   // --- Debug ---
   async function clearCache() {
-    if (confirm("Are you sure you want to delete all downloaded models?")) {
+    if (confirm(i18n.t("messages.clearCacheConfirm"))) {
       try {
         await sendMessage("CLEAR_CACHE", undefined);
-        showStatus(`Cleared all caches.`);
+        showStatus(i18n.t("messages.clearedCache"));
         installedModels = [];
       } catch (err) {
-        alert("Error clearing cache: " + err.message);
+        alert(i18n.t("messages.clearCacheError") + err.message);
       }
     }
   }
@@ -249,31 +248,29 @@
     try {
       const models = await sendMessage("GET_CACHED_MODELS", undefined);
       installedModels =
-        models && models.length > 0 ? models : ["No models cached."];
+        models && models.length > 0
+          ? models
+          : [i18n.t("messages.noModelsCached")];
     } catch (err) {
       installedModels = ["Error: " + err.message];
     }
   }
 
   async function resetAllData() {
-    if (
-      confirm(
-        "Are you sure you want to delete ALL data? This will remove all profiles, settings, and downloaded models. This action cannot be undone.",
-      )
-    ) {
+    if (confirm(i18n.t("messages.resetConfirm"))) {
       try {
         await browser.storage.sync.clear();
         await browser.storage.local.clear();
 
         await sendMessage("CLEAR_CACHE", undefined);
 
-        showStatus("All data reset. Reloading defaults...");
+        showStatus(i18n.t("messages.resetSuccess"));
 
         // Reload default settings
         loadSettings();
         installedModels = [];
       } catch (err) {
-        alert("Error resetting data: " + err.message);
+        alert(i18n.t("messages.resetError") + err.message);
       }
     }
   }
@@ -288,16 +285,22 @@
 
   async function handleCheckUpdate() {
     updateStatus = "checking";
-    const result = await checkUpdate();
-    if (result.error) {
+    try {
+      const result = await checkUpdate();
+      if (result.error) {
+        updateStatus = "error";
+        statusMessage = i18n.t("update.failed");
+      } else if (result.hasUpdate) {
+        updateStatus = "available";
+        updateData = result;
+      } else {
+        updateStatus = "uptodate";
+        statusMessage = i18n.t("update.upToDate");
+        updateData = result;
+      }
+    } catch (error) {
       updateStatus = "error";
-      showStatus("Error checking for update");
-    } else if (result.hasUpdate) {
-      updateStatus = "available";
-      updateData = result;
-    } else {
-      updateStatus = "uptodate";
-      updateData = result;
+      statusMessage = i18n.t("update.failed");
     }
   }
 </script>
@@ -306,7 +309,7 @@
 
 <main class="container mx-auto p-4 max-w-4xl">
   <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">HoneyWhisper</h1>
+    <h1 class="text-2xl font-bold">{i18n.t("name")}</h1>
     <div class="flex items-center gap-4">
       {#if statusMessage}
         <span class="text-green-600 font-medium">{statusMessage}</span>
@@ -321,17 +324,23 @@
     class="w-full"
   >
     <Tabs.List class="grid w-full grid-cols-4 mb-6">
-      <Tabs.Trigger value="profiles">profiles</Tabs.Trigger>
-      <Tabs.Trigger value="hub">Model Hub</Tabs.Trigger>
-      <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
-      <Tabs.Trigger value="advanced">Advanced</Tabs.Trigger>
+      <Tabs.Trigger value="profiles"
+        >{i18n.t("options.profilesTab")}</Tabs.Trigger
+      >
+      <Tabs.Trigger value="hub">{i18n.t("options.hubTab")}</Tabs.Trigger>
+      <Tabs.Trigger value="settings">{i18n.t("options.title")}</Tabs.Trigger>
+      <Tabs.Trigger value="advanced"
+        >{i18n.t("options.advancedTab")}</Tabs.Trigger
+      >
     </Tabs.List>
 
     <Tabs.Content value="profiles">
       {#if !editingProfileId}
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold">My Profiles</h2>
-          <Button onclick={createProfile}>+ New Profile</Button>
+          <h2 class="text-xl font-semibold">{i18n.t("profiles.title")}</h2>
+          <Button onclick={createProfile}
+            >{i18n.t("profiles.newProfileBtn")}</Button
+          >
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {#each profiles as profile}
@@ -358,12 +367,14 @@
                 <Button
                   variant="outline"
                   size="sm"
-                  onclick={() => editProfile(profile)}>Edit</Button
+                  onclick={() => editProfile(profile)}
+                  >{i18n.t("profiles.edit")}</Button
                 >
                 <Button
                   variant="destructive"
                   size="sm"
-                  onclick={() => deleteProfile(profile.id)}>Delete</Button
+                  onclick={() => deleteProfile(profile.id)}
+                  >{i18n.t("profiles.delete")}</Button
                 >
               </Card.Footer>
             </Card.Root>
@@ -374,13 +385,13 @@
           <Card.Header>
             <Card.Title>
               {profiles.find((p) => p.id === tempProfile.id)
-                ? "Edit Profile"
-                : "New Profile"}
+                ? i18n.t("profiles.editTitle")
+                : i18n.t("profiles.newTitle")}
             </Card.Title>
           </Card.Header>
           <Card.Content class="space-y-4">
             <div class="grid gap-2">
-              <Label for="profile-name">Profile Name</Label>
+              <Label for="profile-name">{i18n.t("profiles.nameLabel")}</Label>
               <Input
                 id="profile-name"
                 type="text"
@@ -389,29 +400,35 @@
             </div>
 
             <div class="grid gap-2">
-              <Label>Backend</Label>
+              <Label>{i18n.t("profiles.backendLabel")}</Label>
               <RadioGroup.Root
                 bind:value={tempProfile.backend}
                 class="flex space-x-4"
               >
                 <div class="flex items-center space-x-2">
                   <RadioGroup.Item value="webgpu" id="backend-webgpu" />
-                  <Label for="backend-webgpu">Local (WebGPU)</Label>
+                  <Label for="backend-webgpu"
+                    >{i18n.t("profiles.localWebgpu")}</Label
+                  >
                 </div>
                 <div class="flex items-center space-x-2">
                   <RadioGroup.Item value="wasm" id="backend-wasm" />
-                  <Label for="backend-wasm">Local (WASM)</Label>
+                  <Label for="backend-wasm"
+                    >{i18n.t("profiles.localWasm")}</Label
+                  >
                 </div>
                 <div class="flex items-center space-x-2">
                   <RadioGroup.Item value="remote" id="backend-remote" />
-                  <Label for="backend-remote">Remote (API)</Label>
+                  <Label for="backend-remote"
+                    >{i18n.t("profiles.remoteApi")}</Label
+                  >
                 </div>
               </RadioGroup.Root>
             </div>
 
             {#if tempProfile.backend === "webgpu" || tempProfile.backend === "wasm"}
               <div class="grid gap-2">
-                <Label for="model-id">Model ID (HuggingFace)</Label>
+                <Label for="model-id">{i18n.t("profiles.modelIdLabel")}</Label>
                 <Input
                   id="model-id"
                   type="text"
@@ -420,7 +437,7 @@
                 />
               </div>
               <div class="grid gap-2">
-                <Label>Quantization</Label>
+                <Label>{i18n.t("profiles.quantizationLabel")}</Label>
                 <Combobox
                   value={tempProfile.quantization}
                   options={[
@@ -434,7 +451,9 @@
               </div>
             {:else}
               <div class="grid gap-2">
-                <Label for="api-endpoint">API Endpoint</Label>
+                <Label for="api-endpoint"
+                  >{i18n.t("profiles.apiEndpointLabel")}</Label
+                >
                 <Input
                   id="api-endpoint"
                   type="text"
@@ -443,7 +462,7 @@
                 />
               </div>
               <div class="grid gap-2">
-                <Label for="api-key">API Key (Optional)</Label>
+                <Label for="api-key">{i18n.t("profiles.apiKeyLabel")}</Label>
                 <Input
                   id="api-key"
                   type="password"
@@ -453,8 +472,10 @@
             {/if}
           </Card.Content>
           <Card.Footer class="flex justify-end gap-2">
-            <Button variant="outline" onclick={cancelEdit}>Cancel</Button>
-            <Button onclick={saveProfile}>Save Profile</Button>
+            <Button variant="outline" onclick={cancelEdit}
+              >{i18n.t("profiles.cancelBtn")}</Button
+            >
+            <Button onclick={saveProfile}>{i18n.t("profiles.saveBtn")}</Button>
           </Card.Footer>
         </Card.Root>
       {/if}
@@ -462,10 +483,10 @@
 
     <Tabs.Content value="hub">
       <div class="space-y-4">
-        <h2 class="text-xl font-semibold">Model Hub</h2>
+        <h2 class="text-xl font-semibold">{i18n.t("hub.title")}</h2>
         {#if hubLoading}
           <div class="flex items-center justify-center p-8">
-            <p class="text-muted-foreground">Loading models...</p>
+            <p class="text-muted-foreground">{i18n.t("hub.loading")}</p>
           </div>
         {:else}
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -485,13 +506,15 @@
     <Tabs.Content value="settings">
       <Card.Root>
         <Card.Header>
-          <Card.Title>Settings</Card.Title>
+          <Card.Title>{i18n.t("options.title")}</Card.Title>
         </Card.Header>
         <Card.Content class="space-y-6">
           <div class="space-y-4">
-            <h3 class="text-lg font-medium">Translation</h3>
+            <h3 class="text-lg font-medium">{i18n.t("options.translation")}</h3>
             <div class="flex items-center justify-between">
-              <Label for="translation-mode">Enable Real-time Translation</Label>
+              <Label for="translation-mode"
+                >{i18n.t("options.enableTranslation")}</Label
+              >
               <Switch
                 id="translation-mode"
                 bind:checked={translationEnabled}
@@ -500,7 +523,9 @@
             </div>
             {#if translationEnabled}
               <div class="flex items-center justify-between ml-4">
-                <Label for="show-original">Show Original Text</Label>
+                <Label for="show-original"
+                  >{i18n.t("options.showOriginal")}</Label
+                >
                 <Switch
                   id="show-original"
                   bind:checked={showOriginal}
@@ -509,7 +534,7 @@
               </div>
 
               <div class="grid gap-2">
-                <Label>Service</Label>
+                <Label>{i18n.t("options.translationService")}</Label>
                 <Combobox
                   value={translationService}
                   options={TRANSLATION_SERVICES.map((s) => ({
@@ -525,7 +550,7 @@
               </div>
 
               <div class="grid gap-2">
-                <Label>Target Language</Label>
+                <Label>{i18n.t("options.targetLanguage")}</Label>
                 <Combobox
                   value={targetLanguage}
                   options={TARGET_LANGUAGES.map((l) => ({
@@ -544,9 +569,9 @@
           </div>
 
           <div class="space-y-4">
-            <h3 class="text-lg font-medium">Recognition</h3>
+            <h3 class="text-lg font-medium">{i18n.t("options.language")}</h3>
             <div class="grid gap-2">
-              <Label>Source Language</Label>
+              <Label>{i18n.t("options.sourceLanguage")}</Label>
               <Combobox
                 value={language}
                 options={LANGUAGES.map((l) => ({
@@ -564,10 +589,10 @@
           </div>
 
           <div class="space-y-4">
-            <h3 class="text-lg font-medium">Appearance</h3>
+            <h3 class="text-lg font-medium">{i18n.t("options.displayTab")}</h3>
             <div class="grid gap-2">
               <div class="flex justify-between">
-                <Label>Subtitle Size</Label>
+                <Label>{i18n.t("options.fontSize")}</Label>
                 <span class="text-sm text-muted-foreground">{fontSize}px</span>
               </div>
               <Slider
@@ -582,7 +607,8 @@
               />
             </div>
             <div class="grid gap-2">
-              <Label for="history-lines">History Lines</Label>
+              <Label for="history-lines">{i18n.t("options.historyLines")}</Label
+              >
               <Input
                 id="history-lines"
                 type="number"
@@ -595,13 +621,13 @@
           </div>
 
           <div class="space-y-4">
-            <h3 class="text-lg font-medium">Updates</h3>
+            <h3 class="text-lg font-medium">{i18n.t("update.title")}</h3>
             <div class="flex items-center justify-between">
               <div class="flex flex-col">
-                <Label>Check for Updates</Label>
+                <Label>{i18n.t("update.checkUpdate")}</Label>
                 <span class="text-xs text-muted-foreground"
-                  >Current Version: {browser.runtime.getManifest()
-                    .version}</span
+                  >{i18n.t("update.currentVersion")}
+                  {browser.runtime.getManifest().version}</span
                 >
               </div>
               <Button
@@ -611,8 +637,8 @@
                 disabled={updateStatus === "checking"}
               >
                 {updateStatus === "checking"
-                  ? "Checking..."
-                  : "Check for Update"}
+                  ? i18n.t("update.checking")
+                  : i18n.t("update.check")}
               </Button>
             </div>
             {#if updateStatus === "available"}
@@ -622,44 +648,46 @@
                 <div class="flex items-center justify-between">
                   <div>
                     <p class="font-medium text-yellow-800 dark:text-yellow-200">
-                      Update Available: {updateData.latestVersion}
+                      {i18n.t("update.available")}
+                      {updateData.latestVersion}
                     </p>
                     <a
                       href={updateData.releaseUrl}
                       target="_blank"
                       class="text-sm underline text-yellow-700 dark:text-yellow-300"
-                      >View Release</a
+                      >{i18n.t("update.viewRelease")}</a
                     >
                   </div>
                 </div>
               </div>
             {:else if updateStatus === "uptodate"}
               <div class="text-sm text-green-600 dark:text-green-400">
-                You are using the latest version.
+                {i18n.t("update.isLatest")}
               </div>
             {:else if updateStatus === "error"}
               <div class="text-sm text-destructive">
-                Failed to check for updates.
+                {i18n.t("update.checkFailed")}
               </div>
             {/if}
           </div>
 
           <div class="space-y-4 border-t pt-4">
-            <h3 class="text-lg font-medium text-destructive">Debug</h3>
+            <h3 class="text-lg font-medium text-destructive">
+              {i18n.t("advanced.debug")}
+            </h3>
             <div class="flex gap-2 flex-wrap text-xs">
               <Button variant="secondary" size="sm" onclick={clearCache}
-                >Clear Cache</Button
+                >{i18n.t("advanced.clearCache")}</Button
               >
               <Button variant="outline" size="sm" onclick={listModels}
-                >Check Cache</Button
+                >{i18n.t("advanced.checkCache")}</Button
               >
               <Button variant="destructive" size="sm" onclick={resetAllData}
-                >Reset All Data</Button
+                >{i18n.t("advanced.resetAll")}</Button
               >
             </div>
             <div class="text-xs text-muted-foreground">
-              * Reset All Data will remove all profiles, settings, and
-              downloaded models.
+              {i18n.t("advanced.debugDesc")}
             </div>
             {#if installedModels.length > 0}
               <div

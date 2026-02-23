@@ -1,1 +1,111 @@
-hello: こんにちは
+name: HoneyWhisper
+description: ブラウザ内蔵のリアルタイム AI 音声認識と翻訳拡張機能。
+popup:
+  title: HoneyWhisper
+  ready: 準備完了
+  recording: 録音中...
+  startCaption: キャプチャを開始
+  stopCaption: キャプチャを停止
+  downloadModel: モデルをダウンロード
+  downloadingModel: モデルを読み込み中...
+  finishingDownload: ダウンロードを完了しています...
+  downloadComplete: ダウンロード完了！
+  downloadFailed: ダウンロードに失敗しました。
+  selectProfile: プロファイルを指定...
+  errorPrefix: "エラー: "
+  unknownError: "不明なエラー"
+  tabNameFallback: "タブ名"
+options:
+  title: 設定
+  profilesTab: プロファイル
+  hubTab: モデルハブ
+  displayTab: 表示
+  advancedTab: 詳細設定
+  language: 認識言語
+  translation: 翻訳
+  enableTranslation: 翻訳を有効にする
+  translationService: 翻訳サービス
+  targetLanguage: ターゲット言語
+  showOriginal: 元のテキストを表示
+  sourceLanguage: ソース言語
+  fontSize: フォントサイズ
+  historyLines: 履歴の行数
+  registryUrl: モデルレジストリ URL
+  cannotBeEmpty: 空にすることはできません。
+  autoDetect: 自動検出 (不安定)
+update:
+  title: アップデート
+  checkUpdate: 更新を確認
+  currentVersion: "現在のバージョン: "
+  checking: 確認中...
+  check: 更新を確認
+  upToDate: 最新版です！
+  available: "アップデートあり: "
+  failed: チェックに失敗しました。再試行してください。
+  isLatest: 最新のバージョンを使用しています。
+  checkFailed: アップデートの確認に失敗しました。
+  viewRelease: リリースノートを見る
+
+profiles:
+  title: マイプロファイル
+  newProfileBtn: "+ 新規プロファイル"
+  edit: 編集
+  delete: 削除
+  editTitle: プロファイルの編集
+  newTitle: 新規プロファイル
+  nameLabel: プロファイル名
+  backendLabel: バックエンド
+  localWebgpu: ローカル (WebGPU)
+  localWasm: ローカル (WASM)
+  remoteApi: リモート (API)
+  modelIdLabel: モデル ID (HuggingFace)
+  quantizationLabel: 量子化
+  apiEndpointLabel: API エンドポイント
+  apiKeyLabel: API キー (任意)
+  cancelBtn: キャンセル
+  saveBtn: プロファイルを保存
+  deleteConfirm: このプロファイルを削除しますか？
+  invalidProfile: 有効なプロファイルを選択してください。
+
+hub:
+  title: モデルハブ
+  loading: モデルを読み込み中...
+  loadFailed: GitHubからの最新モデルの取得に失敗しました。ローカルバックアップを使用します。
+  viewOnHF: HF で見る
+  createProfileBtn: プロファイルを作成
+
+messages:
+  settingsSaved: 設定を保存しました
+  profileCreated: "プロファイルを作成しました: "
+  clearedCache: すべてのキャッシュをクリアしました。
+  clearCacheError: "キャッシュクリアエラー: "
+  noModelsCached: キャッシュされたモデルはありません。
+  resetConfirm: すべてのデータを削除してよろしいですか？これにより、すべてのプロファイル、設定、およびダウンロードしたモデルが削除されます。この操作は元に戻せません。
+  resetSuccess: すべてのデータをリセットしました。デフォルトを再読み込み中...
+  resetError: "データリセットエラー: "
+  clearCacheConfirm: ダウンロードしたすべてのモデルを削除してよろしいですか？
+
+advanced:
+  vadSettings: 音声区間検出 (VAD) の設定
+  vadDesc: VAD パラメータを調整します。何をしているか理解している場合のみ変更してください。
+  positiveThreshold: ポジティブ音声のしきい値
+  positiveThresholdDesc: 音声として判定する確率のしきい値。値が高いほど感度が低くなります。
+  negativeThreshold: ネガティブ音声のしきい値
+  negativeThresholdDesc: 無音として判定する確率のしきい値。値が低いほど無音判定が厳密になります。
+  minSpeech: 最小音声長 (ミリ秒)
+  minSpeechDesc: 録音セグメントを開始するための最小音声長。
+  redemption: 無音の許容時間 (ミリ秒)
+  redemptionDesc: 音声終了後、録音を停止するまでの待機時間（ポーズを捉えるため）。
+  debug: デバッグツール
+  debugDesc: トラブルシューティングとリセット用のツール。
+  checkCache: ダウンロードしたモデルを確認
+  clearCache: ダウンロードしたモデルをクリア
+  noModels: キャッシュされたモデルはありません。
+  resetAll: すべての設定とデータをリセット
+
+content:
+  initializing: HoneyWhisperを初期化しています...
+  loading: "読み込み中: "
+  modelReady: モデルの準備完了
+  initiatingModel: モデルを起動しています...
+  systemOverload: "⚠️ システム過負荷: 処理が混雑しています"

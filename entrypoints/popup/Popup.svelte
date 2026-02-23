@@ -5,6 +5,7 @@
   import { ModeWatcher } from "mode-watcher";
   import { sendMessage, onMessage } from "$lib/messaging";
   import { getSettings, extensionStorage } from "$lib/settings";
+  import { i18n } from "#i18n";
 
   // Shadcn Components
   import { Button } from "$lib/components/ui/button/index.js";
@@ -22,14 +23,14 @@
 
   // Active Tab Info
   let showActiveTabInfo = false;
-  let activeTabTitle = "Tab Name";
+  let activeTabTitle = i18n.t("popup.tabNameFallback");
   let activeTabId = null;
   let pendingTabId = null;
 
   // Progress Bar
   let showProgress = false;
   let progressPercent = 0;
-  let progressText = "Loading Model...";
+  let progressText = i18n.t("popup.downloadingModel");
   let progressStatus = "initiate"; // initiate, progress, done, error
 
   // Profiles
@@ -68,7 +69,9 @@
         progressStatus = message.data.status;
 
         if (message.data.status === "error") {
-          progressText = "Error: " + (message.data.error || "Unknown Error");
+          progressText =
+            i18n.t("popup.errorPrefix") +
+            (message.data.error || i18n.t("popup.unknownError"));
           isLoading = false;
           isDownloading = false;
           return;
@@ -76,12 +79,12 @@
 
         if (message.data.status === "done") {
           progressPercent = 100;
-          progressText = "Finishing Download...";
+          progressText = i18n.t("popup.finishingDownload");
           return;
         }
 
         progressPercent = Math.round(message.data.progress || 0);
-        progressText = `Loading ${message.data.file || "Model"}...`;
+        progressText = `${i18n.t("popup.downloadingModel")} ${message.data.file || ""}`;
       }),
     );
 
@@ -91,10 +94,10 @@
         await checkModelStatus();
         isDownloading = false;
         if (modelCached) {
-          progressText = "Download Complete!";
+          progressText = i18n.t("popup.downloadComplete");
           progressPercent = 100;
         } else {
-          progressText = "Download failed to cache.";
+          progressText = i18n.t("popup.downloadFailed");
         }
         setTimeout(() => {
           showProgress = false;
@@ -105,7 +108,7 @@
     cleanupListeners.push(
       onMessage("RECORDING_STARTED", () => {
         isLoading = false;
-        progressText = "Recording Active!";
+        progressText = i18n.t("popup.recording");
         setRecordingState(true, pendingTabId);
 
         if (autoCloseOnReady) {
@@ -162,7 +165,7 @@
     isDownloading = true;
     showProgress = true;
     progressPercent = 0;
-    progressText = "Downloading Model...";
+    progressText = i18n.t("popup.downloadingModel");
 
     // Pass index since background finds the profile by index
     const profileIndex = profiles.findIndex((p) => p.id === selectedProfileId);
@@ -258,16 +261,21 @@
 
   // Helper
   $: selectedProfileName =
-    profiles.find((p) => p.id === selectedProfileId)?.name || "Select Profile";
+    profiles.find((p) => p.id === selectedProfileId)?.name ||
+    i18n.t("popup.selectProfile");
 </script>
 
 <ModeWatcher />
 
 <main class="w-[320px] min-h-[300px] p-4 bg-background text-foreground">
   <div class="flex items-center justify-between mb-4">
-    <h1 class="text-lg font-bold">HoneyWhisper</h1>
+    <h1 class="text-lg font-bold">{i18n.t("popup.title")}</h1>
     <Badge variant={isRecording ? "destructive" : "secondary"}>
-      {isLoading ? "Initializing..." : isRecording ? "Recording" : "Ready"}
+      {isLoading
+        ? "Initializing..."
+        : isRecording
+          ? i18n.t("popup.recording")
+          : i18n.t("popup.ready")}
     </Badge>
   </div>
 
@@ -300,7 +308,7 @@
       <Combobox
         value={selectedProfileId}
         options={profiles.map((p) => ({ value: p.id, label: p.name }))}
-        placeholder={selectedProfileName || "Select Profile"}
+        placeholder={selectedProfileName || i18n.t("popup.selectProfile")}
         onSelect={(v) => onProfileChange(v)}
         disabled={isLoading || isDownloading}
         class="w-full"
@@ -313,7 +321,7 @@
         class="w-full h-12 text-lg font-semibold"
         onclick={toggleRecording}
       >
-        Stop Captioning
+        {i18n.t("popup.stopCaption")}
       </Button>
     {:else if modelCached === null}
       <Button
@@ -330,7 +338,9 @@
         onclick={downloadModel}
         disabled={isDownloading}
       >
-        {isDownloading ? "Downloading..." : "Download Model"}
+        {isDownloading
+          ? i18n.t("popup.downloadingModel")
+          : i18n.t("popup.downloadModel")}
       </Button>
     {:else}
       <Button
@@ -339,7 +349,7 @@
         onclick={toggleRecording}
         disabled={isLoading}
       >
-        {isLoading ? "Starting..." : "Start Captioning"}
+        {isLoading ? "Starting..." : i18n.t("popup.startCaption")}
       </Button>
     {/if}
 
@@ -352,7 +362,7 @@
         title="Manage Profiles"
       >
         <Settings class="h-4 w-4 mr-2" />
-        Settings
+        {i18n.t("options.title")}
       </Button>
     {/if}
   </div>

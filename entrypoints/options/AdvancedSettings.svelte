@@ -3,6 +3,7 @@
     import { Slider } from "$lib/components/ui/slider/index.js";
     import { Input } from "$lib/components/ui/input/index.js";
     import * as Card from "$lib/components/ui/card/index.js";
+    import { i18n } from "#i18n";
 
     export let vadSettings = {
         positiveSpeechThreshold: 0.8,
@@ -20,16 +21,16 @@
 
 <Card.Root>
     <Card.Header>
-        <Card.Title>VAD Parameters (Voice Activity Detection)</Card.Title>
+        <Card.Title>{i18n.t("advanced.vadSettings")}</Card.Title>
         <Card.Description>
-            Fine-tune how the extension detects speech.
+            {i18n.t("advanced.vadDesc")}
         </Card.Description>
     </Card.Header>
     <Card.Content class="space-y-6">
         <!-- Positive Speech Threshold -->
         <div class="grid gap-2">
             <div class="flex justify-between">
-                <Label>Positive Speech Threshold</Label>
+                <Label>{i18n.t("advanced.positiveThreshold")}</Label>
                 <span class="text-sm text-muted-foreground"
                     >{vadSettings.positiveSpeechThreshold.toFixed(2)}</span
                 >
@@ -45,15 +46,14 @@
                 }}
             />
             <p class="text-xs text-muted-foreground">
-                Probability threshold to consider a frame as speech. Higher
-                values mean less sensitivity.
+                {i18n.t("advanced.positiveThresholdDesc")}
             </p>
         </div>
 
         <!-- Negative Speech Threshold -->
         <div class="grid gap-2">
             <div class="flex justify-between">
-                <Label>Negative Speech Threshold</Label>
+                <Label>{i18n.t("advanced.negativeThreshold")}</Label>
                 <span class="text-sm text-muted-foreground"
                     >{vadSettings.negativeSpeechThreshold.toFixed(2)}</span
                 >
@@ -69,14 +69,13 @@
                 }}
             />
             <p class="text-xs text-muted-foreground">
-                Probability threshold to consider a frame as silence. Lower
-                values mean more strict silence detection.
+                {i18n.t("advanced.negativeThresholdDesc")}
             </p>
         </div>
 
         <!-- Min Speech Duration -->
         <div class="grid gap-2">
-            <Label for="min-speech">Min Speech Duration (ms)</Label>
+            <Label for="min-speech">{i18n.t("advanced.minSpeech")}</Label>
             <Input
                 id="min-speech"
                 type="number"
@@ -86,13 +85,13 @@
                 onchange={handleChange}
             />
             <p class="text-xs text-muted-foreground">
-                Minimum duration of speech to trigger a recording segment.
+                {i18n.t("advanced.minSpeechDesc")}
             </p>
         </div>
 
         <!-- Redemption Duration -->
         <div class="grid gap-2">
-            <Label for="redemption">Redemption Duration (ms)</Label>
+            <Label for="redemption">{i18n.t("advanced.redemption")}</Label>
             <Input
                 id="redemption"
                 type="number"
@@ -102,8 +101,7 @@
                 onchange={handleChange}
             />
             <p class="text-xs text-muted-foreground">
-                Wait time after speech ends before stopping recording (to catch
-                pauses).
+                {i18n.t("advanced.redemptionDesc")}
             </p>
         </div>
     </Card.Content>

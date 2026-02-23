@@ -23,8 +23,9 @@ function getPackageVersion(packageName: string) {
 export default defineConfig({
     modules: ['@wxt-dev/module-svelte', '@wxt-dev/i18n/module'],
     manifest: {
-        name: 'HoneyWhisper',
-        default_locale: 'zh_TW',
+        name: '__MSG_name__',
+        description: '__MSG_description__',
+        default_locale: 'en',
         icons: {
             "16": "icons/icon_idle.png",
             "48": "icons/icon_idle.png",

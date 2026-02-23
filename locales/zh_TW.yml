@@ -1,1 +1,111 @@
-hello: 你好
+name: HoneyWhisper
+description: 瀏覽器內建的即時 AI 語音轉譯與翻譯擴充功能。
+popup:
+  title: HoneyWhisper 控制面板
+  ready: 準備就緒
+  recording: 錄音中...
+  startCaption: 開始擷取
+  stopCaption: 停止擷取
+  downloadModel: 下載模型
+  downloadingModel: 載入模型中...
+  finishingDownload: 即將完成下載...
+  downloadComplete: 下載完成！
+  downloadFailed: 下載快取失敗。
+  selectProfile: 選擇設定檔...
+  errorPrefix: "錯誤: "
+  unknownError: "未知錯誤"
+  tabNameFallback: "分頁名稱"
+options:
+  title: 設定
+  profilesTab: 設定檔
+  hubTab: 模型庫
+  displayTab: 顯示設定
+  advancedTab: 進階設定
+  language: 轉譯語言
+  translation: 翻譯設定
+  enableTranslation: 啟用翻譯
+  translationService: 翻譯服務
+  targetLanguage: 目標語言
+  showOriginal: 顯示原文
+  sourceLanguage: 來源語言
+  fontSize: 字體大小 (px)
+  historyLines: 保留歷史字幕行數
+  registryUrl: 模型註冊表網址
+  cannotBeEmpty: 不能為空。
+  autoDetect: 自動偵測 (不穩定)
+update:
+  title: 更新
+  checkUpdate: 檢查更新
+  currentVersion: "當前版本: "
+  checking: 檢查中...
+  check: 檢查更新
+  upToDate: 已是最新版本！
+  available: "有新版本: "
+  failed: 檢查失敗，請重試。
+  isLatest: 您目前使用的是最新版本。
+  checkFailed: 檢查更新失敗。
+  viewRelease: 查看版本資訊
+
+profiles:
+  title: 我的設定檔
+  newProfileBtn: "+ 新增設定檔"
+  edit: 編輯
+  delete: 刪除
+  editTitle: 編輯設定檔
+  newTitle: 新增設定檔
+  nameLabel: 設定檔名稱
+  backendLabel: 執行後端
+  localWebgpu: 本機 (WebGPU)
+  localWasm: 本機 (WASM)
+  remoteApi: 遠端 (API)
+  modelIdLabel: 模型 ID (HuggingFace)
+  quantizationLabel: 量化模型
+  apiEndpointLabel: API 服務端點
+  apiKeyLabel: API 金鑰 (選填)
+  cancelBtn: 取消
+  saveBtn: 儲存設定檔
+  deleteConfirm: 確定要刪除此設定檔嗎？
+  invalidProfile: 請選擇有效的設定檔。
+
+hub:
+  title: 模型庫
+  loading: 載入模型中...
+  loadFailed: 無法從 GitHub 取得最新模型列表，已使用本機備份。
+  viewOnHF: 在 HF 上檢視
+  createProfileBtn: 建立設定檔
+
+messages:
+  settingsSaved: 設定已儲存
+  profileCreated: "已建立設定檔: "
+  clearedCache: 所有的快取已清除。
+  clearCacheError: "清除快取時發生錯誤: "
+  noModelsCached: 無已快取模型。
+  resetConfirm: 確定要刪除所有資料嗎？這將會清除所有設定檔、設定與已下載的模型。此動作無法復原。
+  resetSuccess: 所有資料已重設。正在重新載入預設值...
+  resetError: "重設資料時發生錯誤: "
+  clearCacheConfirm: 確定要刪除所有已下載的模型嗎？
+
+advanced:
+  vadSettings: 人聲檢測 (VAD) 設定
+  vadDesc: 調整 VAD 參數。除非你知道你在做什麼，否則建議保持預設值。
+  positiveThreshold: 正向語音閾值
+  positiveThresholdDesc: 將音訊片段判斷為語音的機率閾值。數值越高，靈敏度越低。
+  negativeThreshold: 負向語音閾值
+  negativeThresholdDesc: 將音訊片段判斷為靜音的機率閾值。數值越低，判定越嚴格。
+  minSpeech: 最小語音長度 (毫秒)
+  minSpeechDesc: 觸發錄音片段所需的最小語音長度。
+  redemption: 容忍靜音長度 (毫秒)
+  redemptionDesc: 語音結束後、停止錄音前的等待時間（用於捕捉語句間的停頓）。
+  debug: 除錯工具
+  debugDesc: 用於除錯與重設的工具。
+  checkCache: 檢查已下載模型
+  clearCache: 清除所有已下載模型
+  noModels: 無已快取模型。
+  resetAll: 重設所有設定與資料 (危險操作)
+
+content:
+  initializing: 正在初始化 HoneyWhisper...
+  loading: "載入中: "
+  modelReady: 模型已就緒
+  initiatingModel: 啟動模型中...
+  systemOverload: "⚠️ 系統過載: 處理繁忙"

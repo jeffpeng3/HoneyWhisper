@@ -1,1 +1,111 @@
-hello: Hello
+name: HoneyWhisper
+description: Real-time AI voice transcription & translation right in your browser.
+popup:
+  title: HoneyWhisper Control
+  ready: Ready to capture.
+  recording: Recording...
+  startCaption: Start Capture
+  stopCaption: Stop Capture
+  downloadModel: Download Model
+  downloadingModel: Downloading Model...
+  finishingDownload: Finishing Download...
+  downloadComplete: Download Complete!
+  downloadFailed: Download failed to cache.
+  selectProfile: Select Profile...
+  errorPrefix: "Error: "
+  unknownError: "Unknown Error"
+  tabNameFallback: "Tab Name"
+options:
+  title: Settings
+  profilesTab: Profiles
+  hubTab: Model Hub
+  displayTab: Display
+  advancedTab: Advanced
+  language: Transcription Language
+  translation: Translation
+  enableTranslation: Enable Translation
+  translationService: Service
+  targetLanguage: Target Language
+  showOriginal: Show Original Text
+  sourceLanguage: Source Language
+  fontSize: Font Size
+  historyLines: History Lines
+  registryUrl: Model Registry URL
+  cannotBeEmpty: Cannot be empty.
+  autoDetect: Auto Detect (Unstable)
+update:
+  title: Updates
+  checkUpdate: Check for Updates
+  currentVersion: "Current Version: "
+  checking: Checking...
+  check: Check for Update
+  upToDate: Up to date!
+  available: "Update Available: "
+  failed: Check failed. Try again.
+  isLatest: You are using the latest version.
+  checkFailed: Failed to check for updates.
+  viewRelease: View Release
+
+profiles:
+  title: My Profiles
+  newProfileBtn: "+ New Profile"
+  edit: Edit
+  delete: Delete
+  editTitle: Edit Profile
+  newTitle: New Profile
+  nameLabel: Profile Name
+  backendLabel: Backend
+  localWebgpu: Local (WebGPU)
+  localWasm: Local (WASM)
+  remoteApi: Remote (API)
+  modelIdLabel: Model ID (HuggingFace)
+  quantizationLabel: Quantization
+  apiEndpointLabel: API Endpoint
+  apiKeyLabel: API Key (Optional)
+  cancelBtn: Cancel
+  saveBtn: Save Profile
+  deleteConfirm: Delete this profile?
+  invalidProfile: Please select a valid profile.
+
+hub:
+  title: Model Hub
+  loading: Loading models...
+  loadFailed: Failed to load latest models from GitHub. Using local backup.
+  viewOnHF: View on HF
+  createProfileBtn: Create Profile
+
+messages:
+  settingsSaved: Settings Saved
+  profileCreated: "Created profile: "
+  clearedCache: Cleared all caches.
+  clearCacheError: "Error clearing cache: "
+  noModelsCached: No models cached.
+  resetConfirm: Are you sure you want to delete ALL data? This will remove all profiles, settings, and downloaded models. This action cannot be undone.
+  resetSuccess: All data reset. Reloading defaults...
+  resetError: "Error resetting data: "
+  clearCacheConfirm: Are you sure you want to delete all downloaded models?
+
+advanced:
+  vadSettings: Voice Activity Detection (VAD)
+  vadDesc: Adjust VAD parameters. Only modify these if you know what you are doing.
+  positiveThreshold: Positive Speech Threshold
+  positiveThresholdDesc: Probability threshold to consider a frame as speech. Higher values mean less sensitivity.
+  negativeThreshold: Negative Speech Threshold
+  negativeThresholdDesc: Probability threshold to consider a frame as silence. Lower values mean more strict silence detection.
+  minSpeech: Minimum Speech Length (ms)
+  minSpeechDesc: Minimum duration of speech to trigger a recording segment.
+  redemption: Redemption Time (ms)
+  redemptionDesc: Wait time after speech ends before stopping recording (to catch pauses).
+  debug: Debug Tools
+  debugDesc: Tools for troubleshooting and resetting.
+  checkCache: Check Downloaded Models
+  clearCache: Clear Downloaded Models
+  noModels: No models cached.
+  resetAll: Reset ALL Settings & Data
+
+content:
+  initializing: Initializing HoneyWhisper...
+  loading: "Loading: "
+  modelReady: Model Ready
+  initiatingModel: Initiating Model...
+  systemOverload: "⚠️ System Overload: Processing Busy"
