@@ -1,6 +1,10 @@
-<script>
+<script lang="ts">
+	import type { Command as CommandPrimitive, Dialog as DialogPrimitive } from "bits-ui";
+	import type { Snippet } from "svelte";
 	import Command from "./command.svelte";
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
+	import type { WithoutChildrenOrChild } from "$lib/utils.js";
+
 	let {
 		open = $bindable(false),
 		ref = $bindable(null),
@@ -10,7 +14,13 @@
 		portalProps,
 		children,
 		...restProps
-	} = $props();
+	}: WithoutChildrenOrChild<DialogPrimitive.RootProps> &
+		WithoutChildrenOrChild<CommandPrimitive.RootProps> & {
+			portalProps?: DialogPrimitive.PortalProps;
+			children: Snippet;
+			title?: string;
+			description?: string;
+		} = $props();
 </script>
 
 <Dialog.Root bind:open {...restProps}>

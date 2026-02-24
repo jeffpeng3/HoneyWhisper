@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { Button } from "$lib/components/ui/button/index.js";
     import * as Card from "$lib/components/ui/card/index.js";
     import { Input } from "$lib/components/ui/input/index.js";
@@ -25,6 +25,22 @@
         onClearCache = () => {},
         onListModels = () => {},
         onResetAll = () => {},
+    }: {
+        translationEnabled: boolean;
+        showOriginal: boolean;
+        translationService: string;
+        targetLanguage: string;
+        language: string;
+        fontSize: number;
+        historyLines: number;
+        installedModels: string[];
+        updateStatus: string;
+        updateData: { latestVersion?: string; releaseUrl?: string } | null;
+        onSave: () => void;
+        onCheckUpdate: () => void;
+        onClearCache: () => void;
+        onListModels: () => void;
+        onResetAll: () => void;
     } = $props();
 
     const LANGUAGES = [
@@ -53,6 +69,13 @@
         { id: "google", name: "Google Translate" },
         { id: "deepl", name: "DeepL" },
     ];
+
+    let fontSizeArr = $state([fontSize]);
+    $effect(() => {
+        if (fontSize !== fontSizeArr[0]) {
+            fontSizeArr = [fontSize];
+        }
+    });
 </script>
 
 <Card.Root>
@@ -92,7 +115,7 @@
                             value: s.id,
                             label: s.name,
                         }))}
-                        onSelect={(v) => {
+                        onSelect={(v: string) => {
                             translationService = v;
                             onSave();
                         }}
@@ -108,7 +131,7 @@
                             value: l.code,
                             label: l.name,
                         }))}
-                        onSelect={(v) => {
+                        onSelect={(v: string) => {
                             targetLanguage = v;
                             onSave();
                         }}
@@ -129,7 +152,7 @@
                         value: l.code,
                         label: l.name,
                     }))}
-                    onSelect={(v) => {
+                    onSelect={(v: string) => {
                         language = v;
                         onSave();
                     }}
@@ -149,13 +172,16 @@
                     >
                 </div>
                 <Slider
+                    type="single"
                     value={[fontSize]}
                     min={16}
                     max={48}
                     step={1}
-                    onValueChange={(v) => {
-                        fontSize = v[0];
-                        onSave();
+                    onValueChange={(v: number[]) => {
+                        if (v && v.length > 0) {
+                            fontSize = v[0];
+                            onSave();
+                        }
                     }}
                 />
             </div>

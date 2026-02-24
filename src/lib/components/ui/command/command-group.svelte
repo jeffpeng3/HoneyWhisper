@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { Command as CommandPrimitive, useId } from "bits-ui";
 	import { cn } from "$lib/utils.js";
 
@@ -9,6 +9,8 @@
 		heading,
 		value,
 		...restProps
+	}: CommandPrimitive.GroupProps & {
+		heading?: string;
 	} = $props();
 </script>
 

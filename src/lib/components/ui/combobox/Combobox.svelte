@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import Check from "lucide-svelte/icons/check";
     import ChevronsUpDown from "lucide-svelte/icons/chevrons-up-down";
     import * as Command from "$lib/components/ui/command/index.js";
@@ -7,19 +7,30 @@
     import { cn } from "$lib/utils.js";
     import { tick } from "svelte";
 
+    type Option = { value: string; label: string };
+
     let {
         value = $bindable(""),
-        options = [],
+        options = [] as Option[],
         placeholder = "Select...",
         emptyText = "No results found.",
         class: className,
         onSelect,
         searchable = false,
         ...restProps
+    }: {
+        value?: string;
+        options?: Option[];
+        placeholder?: string;
+        emptyText?: string;
+        class?: string;
+        onSelect?: (value: string) => void;
+        searchable?: boolean;
+        [key: string]: any;
     } = $props();
 
     let open = $state(false);
-    let triggerRef = $state(null);
+    let triggerRef = $state<HTMLButtonElement | null>(null);
 
     function closeAndFocusTrigger() {
         open = false;

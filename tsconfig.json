@@ -8,6 +8,12 @@
             ],
             "$lib/*": [
                 "./src/lib/*"
+            ],
+            "#i18n": [
+                "./.wxt/i18n/index.ts"
+            ],
+            "#i18n/*": [
+                "./.wxt/i18n/index.ts/*"
             ]
         }
     },

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { Command as CommandPrimitive } from "bits-ui";
 	import SearchIcon from "@lucide/svelte/icons/search";
 	import { cn } from "$lib/utils.js";
@@ -8,7 +8,7 @@
 		class: className,
 		value = $bindable(""),
 		...restProps
-	} = $props();
+	}: CommandPrimitive.InputProps = $props();
 </script>
 
 <div class="flex h-9 items-center gap-2 border-b ps-3 pe-8" data-slot="command-input-wrapper">
