@@ -171,6 +171,10 @@ export default defineBackground(() => {
         if (currentTabId) sendMessage('PERFORMANCE_WARNING', message.data, currentTabId).catch(() => { });
     });
 
+    onMessage('DOWNLOAD_PROGRESS', (message) => {
+        if (currentTabId) sendMessage('DOWNLOAD_PROGRESS', message.data, currentTabId).catch(() => { });
+    });
+
 
     onMessage('CHECK_MODEL_CACHED', async (message) => {
         const targetConfig = message.data;
@@ -243,6 +247,7 @@ export default defineBackground(() => {
     onMessage('GET_STATE', () => {
         return {
             isRecording,
+            currentTabId,
             currentProfileIndex: 0,
             vadStatus: isRecording ? 'quiet' : 'idle'
         };

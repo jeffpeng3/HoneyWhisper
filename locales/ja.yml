@@ -86,6 +86,15 @@ messages:
   clearCacheConfirm: ダウンロードしたすべてのモデルを削除してよろしいですか？
 
 advanced:
+  enableVad: VAD (音声活動検出) を有効にする
+  vadToggleDesc: "有効時は音声を自動検出します。無効時はスライディングウィンドウで音声を継続処理します。"
+  slidingWindowSettings: スライディングウィンドウ設定
+  windowSeconds: ウィンドウ長 (秒)
+  windowSecondsDesc: 認識に送信する音声ウィンドウの長さ。
+  stepSeconds: ステップ間隔 (秒)
+  stepSecondsDesc: 新しい認識がトリガーされる間隔。
+  volumeThreshold: 音量しきい値
+  volumeThresholdDesc: "この値以下の RMS 音量は推論をスキップします (0 = 無効)。"
   vadSettings: 音声区間検出 (VAD) の設定
   vadDesc: VAD パラメータを調整します。何をしているか理解している場合のみ変更してください。
   positiveThreshold: ポジティブ音声のしきい値

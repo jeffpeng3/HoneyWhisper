@@ -86,6 +86,15 @@ messages:
   clearCacheConfirm: 確定要刪除所有已下載的模型嗎？
 
 advanced:
+  enableVad: 啟用人聲檢測 (VAD)
+  vadToggleDesc: "啟用時自動偵測語音。停用時改為滑動窗口持續處理音訊。"
+  slidingWindowSettings: 滑動窗口設定
+  windowSeconds: 窗口長度 (秒)
+  windowSecondsDesc: 每次送入辨識的音訊窗口長度。
+  stepSeconds: 步進間隔 (秒)
+  stepSecondsDesc: 觸發新一次辨識的間隔時間。
+  volumeThreshold: 音量閾值
+  volumeThresholdDesc: "RMS 音量低於此值時將跳過推論 (0 = 停用)。"
   vadSettings: 人聲檢測 (VAD) 設定
   vadDesc: 調整 VAD 參數。除非你知道你在做什麼，否則建議保持預設值。
   positiveThreshold: 正向語音閾值

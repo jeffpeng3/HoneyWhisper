@@ -1,4 +1,29 @@
-export const DEFAULT_PROFILES = [
+export interface Profile {
+    id: string;
+    name: string;
+    backend: string;
+    model_id: string;
+    quantization: string;
+    remote_endpoint: string;
+    remote_key: string;
+}
+
+export interface HubModel {
+    id: string;
+    name: string;
+    engine: string;
+    type: string;
+    config: Record<string, string>;
+    homepage: string;
+}
+
+interface RawModel {
+    id: string;
+    name: string;
+    engine: string;
+}
+
+export const DEFAULT_PROFILES: Profile[] = [
     {
         id: 'default-jp',
         name: 'Japanese (ReazonSpeech)',
@@ -31,31 +56,22 @@ export const DEFAULT_PROFILES = [
 export class ModelRegistry {
 
     /**
-     * Get model configuration by ID
-     * (Warning: This now relies on fetching first or external knowledge, 
-     *  as we don't have a synchronous default list anymore)
-     * @param {string} id 
-     * @returns {object|undefined}
-     */
-
-    /**
      * Fetch models from GitHub
-     * @returns {Promise<{models: Array, error: string|null}>}
      */
-    static async fetchModels() {
+    static async fetchModels(): Promise<{ models: HubModel[]; error: string | null }> {
         const GITHUB_URL = "https://raw.githubusercontent.com/jeffpeng3/HoneyWhisper/master/public/models.json";
         try {
             const response = await fetch(GITHUB_URL);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const rawModels = await response.json();
+            const rawModels: RawModel[] = await response.json();
 
             // Basic validation
             if (!Array.isArray(rawModels) || rawModels.length === 0) throw new Error("Invalid model format");
 
             // Map simplified schema to internal app schema
-            const models = rawModels.map(m => {
+            const models: HubModel[] = rawModels.map(m => {
                 let type = 'webgpu';
-                let config = { quantization: 'q4' }; // Default
+                let config: Record<string, string> = { quantization: 'q4' }; // Default
                 let homepage = '';
 
                 if (m.engine === 'k2ASR' || m.engine === 'k2') {
@@ -86,16 +102,14 @@ export class ModelRegistry {
             return { models, error: null };
         } catch (err) {
             console.warn("Failed to fetch models from GitHub:", err);
-            return { models: [], error: err.message };
+            return { models: [], error: (err as Error).message };
         }
     }
 
     /**
      * Check if a profile's model is already cached in the browser
-     * @param {object} profile - Profile object with model_id, backend, etc.
-     * @returns {Promise<boolean>} true if model is cached or doesn't need download
      */
-    static async checkModelCached(profile) {
+    static async checkModelCached(profile: Profile): Promise<boolean> {
         // Remote models don't need download
         if (profile.backend === 'remote') return true;
 
@@ -124,7 +138,12 @@ export class ModelRegistry {
         }
     }
 
-    static createProfile(name, modelId, backend = 'webgpu', options = {}) {
+    static createProfile(
+        name: string,
+        modelId: string,
+        backend: string = 'webgpu',
+        options: { quantization?: string; endpoint?: string; key?: string } = {}
+    ): Profile {
         return {
             id: crypto.randomUUID(),
             name: name,

@@ -69,13 +69,6 @@
         { id: "google", name: "Google Translate" },
         { id: "deepl", name: "DeepL" },
     ];
-
-    let fontSizeArr = $state([fontSize]);
-    $effect(() => {
-        if (fontSize !== fontSizeArr[0]) {
-            fontSizeArr = [fontSize];
-        }
-    });
 </script>
 
 <Card.Root>
@@ -173,15 +166,12 @@
                 </div>
                 <Slider
                     type="single"
-                    value={[fontSize]}
+                    bind:value={fontSize}
                     min={16}
                     max={48}
                     step={1}
-                    onValueChange={(v: number[]) => {
-                        if (v && v.length > 0) {
-                            fontSize = v[0];
-                            onSave();
-                        }
+                    onValueCommit={() => {
+                        onSave();
                     }}
                 />
             </div>

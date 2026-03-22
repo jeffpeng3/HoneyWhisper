@@ -11,11 +11,17 @@ export interface ExtensionSettings {
     translationService: string;
     targetLanguage: string;
     showOriginal: boolean;
+    audioMode: 'vad' | 'sliding_window';
     vad: {
         positiveSpeechThreshold: number;
         negativeSpeechThreshold: number;
         minSpeechMs: number;
         redemptionMs: number;
+    };
+    slidingWindow: {
+        windowSeconds: number;
+        stepSeconds: number;
+        volumeThreshold: number;
     };
 }
 
@@ -31,11 +37,17 @@ export const defaultSettings: ExtensionSettings = {
     translationService: "google",
     targetLanguage: "zh-TW",
     showOriginal: true,
+    audioMode: 'vad',
     vad: {
         positiveSpeechThreshold: 0.8,
         negativeSpeechThreshold: 0.45,
         minSpeechMs: 100,
         redemptionMs: 50,
+    },
+    slidingWindow: {
+        windowSeconds: 10,
+        stepSeconds: 2,
+        volumeThreshold: 0.01,
     }
 };
 
@@ -49,7 +61,9 @@ export async function getSettings(): Promise<ExtensionSettings> {
     const translationService = await extensionStorage.getItem('translationService') ?? defaultSettings.translationService;
     const targetLanguage = await extensionStorage.getItem('targetLanguage') ?? defaultSettings.targetLanguage;
     const showOriginal = await extensionStorage.getItem('showOriginal') ?? defaultSettings.showOriginal;
+    const audioMode = await extensionStorage.getItem('audioMode') ?? defaultSettings.audioMode;
     const vad = await extensionStorage.getItem('vad') ?? defaultSettings.vad;
+    const slidingWindow = await extensionStorage.getItem('slidingWindow') ?? defaultSettings.slidingWindow;
 
     return {
         activeProfileId,
@@ -61,6 +75,8 @@ export async function getSettings(): Promise<ExtensionSettings> {
         translationService,
         targetLanguage,
         showOriginal,
-        vad
+        audioMode,
+        vad,
+        slidingWindow
     };
 }

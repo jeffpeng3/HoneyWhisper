@@ -55,6 +55,16 @@
     redemptionMs: 50,
   };
 
+  // Audio Mode
+  let audioMode = "vad";
+
+  // Sliding Window Settings
+  let slidingWindowSettings = {
+    windowSeconds: 10,
+    stepSeconds: 2,
+    volumeThreshold: 0.01,
+  };
+
   onMount(async () => {
     loadSettings();
     loadHubModels();
@@ -74,6 +84,8 @@
 
     // Merge defaults just in case
     vadSettings = { ...vadSettings, ...(items.vad || {}) };
+    audioMode = items.audioMode || "vad";
+    slidingWindowSettings = { ...slidingWindowSettings, ...(items.slidingWindow || {}) };
   }
 
   async function loadHubModels() {
@@ -103,7 +115,9 @@
       extensionStorage.setItem("translationService", translationService),
       extensionStorage.setItem("targetLanguage", targetLanguage),
       extensionStorage.setItem("showOriginal", showOriginal),
+      extensionStorage.setItem("audioMode", audioMode),
       extensionStorage.setItem("vad", vadSettings),
+      extensionStorage.setItem("slidingWindow", slidingWindowSettings),
     ]);
 
     showStatus(i18n.t("messages.settingsSaved"));
@@ -115,7 +129,9 @@
         targetLanguage,
         language,
         showOriginal,
+        audioMode,
         vad: vadSettings,
+        slidingWindow: slidingWindowSettings,
       },
     }).catch(() => {});
 
@@ -293,7 +309,7 @@
     </Tabs.Content>
 
     <Tabs.Content value="advanced">
-      <AdvancedSettings bind:vadSettings onChange={saveSettings} />
+      <AdvancedSettings bind:audioMode bind:vadSettings bind:slidingWindowSettings onChange={saveSettings} />
     </Tabs.Content>
   </Tabs.Root>
 </main>

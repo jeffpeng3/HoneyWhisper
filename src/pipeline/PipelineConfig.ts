@@ -13,11 +13,17 @@ export interface PipelineConfigType {
         target: string;
         showOriginal: boolean;
     };
+    audioMode: 'vad' | 'sliding_window';
     vad: {
         positiveSpeechThreshold: number;
         negativeSpeechThreshold: number;
         minSpeechMs: number;
         redemptionMs: number;
+    };
+    slidingWindow: {
+        windowSeconds: number;
+        stepSeconds: number;
+        volumeThreshold: number;
     };
 }
 
@@ -36,11 +42,17 @@ export const pipelineConfig: PipelineConfigType = {
         target: 'zh-TW',
         showOriginal: true
     },
+    audioMode: 'vad',
     vad: {
         positiveSpeechThreshold: 0.8,
         negativeSpeechThreshold: 0.45,
         minSpeechMs: 100,
         redemptionMs: 50
+    },
+    slidingWindow: {
+        windowSeconds: 10,
+        stepSeconds: 2,
+        volumeThreshold: 0.01
     }
 };
 
@@ -58,7 +70,13 @@ export function updatePipelineConfig(settings: any) {
     if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
     if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;
 
+    if (settings.audioMode) pipelineConfig.audioMode = settings.audioMode;
+
     if (settings.vad) {
         pipelineConfig.vad = { ...pipelineConfig.vad, ...settings.vad };
+    }
+
+    if (settings.slidingWindow) {
+        pipelineConfig.slidingWindow = { ...pipelineConfig.slidingWindow, ...settings.slidingWindow };
     }
 }

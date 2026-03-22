@@ -1,17 +1,12 @@
 import { pipeline, env } from "@huggingface/transformers";
 import { BaseASR } from "./BaseASR.js";
-import { browser } from 'wxt/browser';
 
 // Configure local environment for Extensions
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
-const wasmPaths = {
-    'ort-wasm-simd-threaded.jsep.wasm': browser.runtime.getURL('ort-wasm-simd-threaded.jsep.wasm'),
-    'ort-wasm-simd-threaded.jsep.mjs': browser.runtime.getURL('ort-wasm-simd-threaded.jsep.mjs'),
-    'ort-wasm-simd-threaded.wasm': browser.runtime.getURL('ort-wasm-simd-threaded.wasm'),
-    'ort-wasm-simd-threaded.mjs': browser.runtime.getURL('ort-wasm-simd-threaded.mjs'),
-};
+const extensionRoot = new URL('/', self.location.href).href;
+const wasmPaths = self.ort?.env?.wasm?.wasmPaths || extensionRoot;
 
 env.backends.onnx.wasm.wasmPaths = wasmPaths;
 env.backends.onnx.logLevel = 'error';

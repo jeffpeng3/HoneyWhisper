@@ -54,7 +54,7 @@ export default defineConfig({
         ],
         web_accessible_resources: [
             {
-                resources: ['*.wasm', '*.mjs', '*.onnx', 'vad.worklet.bundle.min.js'],
+                resources: ['*.wasm', '*.mjs', '*.onnx', 'vad.worklet.bundle.min.js', 'resampler-worklet.js'],
                 matches: ['<all_urls>'],
             },
         ],

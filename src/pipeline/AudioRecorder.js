@@ -4,6 +4,7 @@ import { browser } from 'wxt/browser';
 import { reportProgress } from "./ProgressTracker.js";
 import { pipelineConfig } from "./PipelineConfig.ts";
 import { pipelineController } from "./PipelineController.js";
+import { SlidingWindowProcessor } from "./SlidingWindowProcessor.js";
 
 export class AudioRecorder {
     constructor() {
@@ -11,6 +12,10 @@ export class AudioRecorder {
         this.vadInstance = null;
         this.audioContext = null;
         this.sourceNode = null;
+
+        // Sliding window mode
+        this.workletNode = null;
+        this.slidingWindowProcessor = null;
     }
 
     async preloadVAD() {
@@ -22,7 +27,7 @@ export class AudioRecorder {
 
         for (const asset of assets) {
             try {
-                const url = browser.runtime.getURL(`assets/${asset}`);
+                const url = browser.runtime.getURL(`${asset}`);
                 await fetch(url);
             } catch (e) {
                 console.warn(`[Preload] Failed to fetch ${asset}:`, e);
@@ -32,11 +37,10 @@ export class AudioRecorder {
     }
 
     async startRecording(streamId) {
-        if (this.vadInstance) return;
+        if (this.vadInstance || this.workletNode) return;
 
         try {
             await pipelineController.init();
-            await this.preloadVAD();
 
             this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
@@ -61,47 +65,113 @@ export class AudioRecorder {
             this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
             this.sourceNode.connect(this.audioContext.destination);
 
-            this.vadInstance = await MicVAD.new({
-                getStream: () => this.stream,
-                baseAssetPath: browser.runtime.getURL('/'),
-                onnxWASMBasePath: browser.runtime.getURL('/'),
-                positiveSpeechThreshold: pipelineConfig.vad.positiveSpeechThreshold,
-                negativeSpeechThreshold: pipelineConfig.vad.negativeSpeechThreshold,
-                redemptionMs: pipelineConfig.vad.redemptionMs,
-                minSpeechMs: pipelineConfig.vad.minSpeechMs,
-                model: 'v5',
-                onSpeechStart: () => {
-                    console.log("VAD: Speech Start");
-                    sendMessage('VAD_STATUS', { status: 'speech' }).catch(() => { });
-                },
-                onSpeechEnd: (audio) => {
-                    const lenSec = audio.length / 16000;
-                    console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
-                    sendMessage('VAD_STATUS', { status: 'quiet' }).catch(() => { });
-                    pipelineController.generate(audio, true);
-                },
-                onVADMisfire: () => {
-                    console.log("VAD: Misfire");
-                    sendMessage('VAD_STATUS', { status: 'idle' }).catch(() => { });
-                }
-            });
+            if (pipelineConfig.audioMode === 'sliding_window') {
+                console.log('[AudioRecorder] Mode: Sliding Window');
+                await this._startSlidingWindowMode();
+            } else {
+                console.log('[AudioRecorder] Mode: VAD');
+                await this._startVADMode();
+            }
 
-            this.vadInstance.start();
-            console.log("VAD Started");
             sendMessage('RECORDING_STARTED', undefined).catch(() => { });
-
         } catch (err) {
             console.error("Error starting recording:", err);
             reportProgress({ status: 'error', error: err.message });
         }
     }
 
+    /** @private */
+    async _startVADMode() {
+        await this.preloadVAD();
+
+        this.vadInstance = await MicVAD.new({
+            getStream: () => this.stream,
+            baseAssetPath: browser.runtime.getURL('/'),
+            onnxWASMBasePath: browser.runtime.getURL('/'),
+            positiveSpeechThreshold: pipelineConfig.vad.positiveSpeechThreshold,
+            negativeSpeechThreshold: pipelineConfig.vad.negativeSpeechThreshold,
+            redemptionMs: pipelineConfig.vad.redemptionMs,
+            minSpeechMs: pipelineConfig.vad.minSpeechMs,
+            model: 'v5',
+            onSpeechRealStart: () => {
+                console.log("VAD: Speech Start");
+                sendMessage('VAD_STATUS', { status: 'speech' }).catch(() => { });
+            },
+            onSpeechEnd: (audio) => {
+                const lenSec = audio.length / 16000;
+                console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
+                sendMessage('VAD_STATUS', { status: 'quiet' }).catch(() => { });
+                pipelineController.generate(audio, true);
+            },
+            // onVADMisfire: () => {
+            //     console.log("VAD: Misfire");
+            //     sendMessage('VAD_STATUS', { status: 'idle' }).catch(() => { });
+            // },
+            onFrameProcessed: (frame) => {
+                console.log("VAD: Frame Processed", frame);
+            }
+        });
+
+        this.vadInstance.start();
+        console.log("VAD Started");
+    }
+
+    /** @private */
+    async _startSlidingWindowMode() {
+        const { windowSeconds, stepSeconds, volumeThreshold } = pipelineConfig.slidingWindow;
+
+        this.slidingWindowProcessor = new SlidingWindowProcessor({
+            windowSeconds,
+            stepSeconds,
+            volumeThreshold,
+            sampleRate: 16000,
+            onWindowReady: (audioChunk) => {
+                pipelineController.generateSlidingWindow(audioChunk);
+            }
+        });
+
+        // Register and create AudioWorklet for resampling
+        const workletUrl = browser.runtime.getURL('resampler-worklet.js');
+        await this.audioContext.audioWorklet.addModule(workletUrl);
+
+        this.workletNode = new AudioWorkletNode(this.audioContext, 'resampler-worklet-processor', {
+            processorOptions: {
+                sampleRate: this.audioContext.sampleRate
+            }
+        });
+
+        // Receive resampled 16kHz PCM from worklet
+        this.workletNode.port.onmessage = (event) => {
+            if (event.data.type === 'audio') {
+                this.slidingWindowProcessor.feed(event.data.samples);
+            }
+        };
+
+        // Connect: source -> worklet -> destination (for playback passthrough)
+        this.sourceNode.disconnect();
+        this.sourceNode.connect(this.workletNode);
+        this.sourceNode.connect(this.audioContext.destination);
+
+        console.log(`[AudioRecorder] Sliding Window Started (window=${windowSeconds}s, step=${stepSeconds}s, volumeThreshold=${volumeThreshold}, inputSampleRate=${this.audioContext.sampleRate}Hz)`);
+    }
+
     stopRecording() {
         pipelineController.processing = false;
 
+        // Stop VAD mode
         if (this.vadInstance) {
             this.vadInstance.pause();
             this.vadInstance = null;
+        }
+
+        // Stop Sliding Window mode
+        if (this.workletNode) {
+            this.workletNode.disconnect();
+            this.workletNode = null;
+        }
+        if (this.slidingWindowProcessor) {
+            this.slidingWindowProcessor.reset();
+            this.slidingWindowProcessor = null;
         }
 
         if (this.stream) {
@@ -116,7 +186,10 @@ export class AudioRecorder {
 
         sendMessage('CLEAR', undefined).catch(() => { });
 
+        // Flush any remaining text in sliding window mode
+        pipelineController.flushStitcher();
         pipelineController.releaseASR().catch(err => console.error("Error releasing pipeline:", err));
+        console.log('[AudioRecorder] Recording stopped');
     }
 }
 

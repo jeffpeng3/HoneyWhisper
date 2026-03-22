@@ -1,14 +1,14 @@
 import { BaseASR } from "./BaseASR.js";
 import { MelFeatureExtractor } from "./MelFeatureExtractor.js";
 import * as ort from 'onnxruntime-web';
-import { browser } from 'wxt/browser';
 
-ort.env.wasm.wasmPaths = {
-    'ort-wasm-simd-threaded.jsep.wasm': browser.runtime.getURL('ort-wasm-simd-threaded.jsep.wasm'),
-    'ort-wasm-simd-threaded.jsep.mjs': browser.runtime.getURL('ort-wasm-simd-threaded.jsep.mjs'),
-    'ort-wasm-simd-threaded.wasm': browser.runtime.getURL('ort-wasm-simd-threaded.wasm'),
-    'ort-wasm-simd-threaded.mjs': browser.runtime.getURL('ort-wasm-simd-threaded.mjs'),
-};
+const extensionRoot = new URL('/', self.location.href).href;
+
+console.log(extensionRoot);
+
+const wasmPaths = self.ort?.env?.wasm?.wasmPaths || extensionRoot;
+
+ort.env.wasm.wasmPaths = wasmPaths;
 
 // Constants for ReazonSpeech v2
 const HF_REPO = "reazon-research/reazonspeech-k2-v2";
@@ -175,37 +175,28 @@ export class K2ASR extends BaseASR {
         // x: [1, T, 80]
         // x_lens: [1] (value = T)
         const xTensor = new ort.Tensor('float32', features, [1, numFrames, 80]);
-        // Note: x_lens must be int64. onnxruntime-web might expect BigInt64Array or just number array if compatible.
-        // Usually BigInt64Array is safest for int64.
         const xLensTensor = new ort.Tensor('int64', new BigInt64Array([BigInt(numFrames)]), [1]);
 
         // Run Encoder
         const encoderResults = await this.sessions.encoder.run({ x: xTensor, x_lens: xLensTensor });
-        // Output name might be 'encoder_out', 'src_mask' etc.
-        // ReazonSpeech export usually has 'encoder_out' and 'encoder_out_lens'.
-        // Let's assume 'encoder_out' matches specs roughly.
-        // We get [1, T_subsampled, C_enc]
 
-        // Find the output tensor. It is likely the first output or named 'encoder_out'.
-        // We can inspect outputNames from session, but let's assume standard 'encoder_out'.
-        // Or check dynamic names. 
         const encoderOutName = this.sessions.encoder.outputNames[0];
         const encoderOut = encoderResults[encoderOutName]; // [1, T, 512]
 
         const T = encoderOut.dims[1];
         const C_enc = encoderOut.dims[2];
 
-        // 3. Greedy Search Decoding (WASM)
+        // 3. Greedy Search Decoding
         const results = await this._runGreedySearch(encoderOut, T, C_enc);
 
-
         // Decode results to string
-        const text = results.map(id => this.tokens[id]).join('').replace(/<blk>/g, '').replace(/_/g, ' '); // _ is often space substitute
+        const text = results.map(id => this.tokens[id]).join('');
         if (text) {
             console.log(text);
         }
+        const displayText = text.replace(/<blk>/g, '').replace(/_/g, ' '); // _ is often space substitute 
 
-        return { text: text };
+        return { text: displayText };
     }
 
     _applyCMVN(features, numFrames, paddingFrames) {
@@ -244,28 +235,28 @@ export class K2ASR extends BaseASR {
 
     async _runGreedySearch(encoderOut, T, C_enc) {
         // Default context: [0, 0]
-        let hyp = [0n, 0n];
+        let hyp = new BigInt64Array([0n, 0n]);
         let results = [];
-
-        // Cache encoder data view to avoid overhead
         const encoderData = encoderOut.data;
 
+        const zeroInt64 = new ort.Tensor('int64', new BigInt64Array([0n]), [1]);
         // Initial decoder run
-        let decoderInput = new ort.Tensor('int64', new BigInt64Array(hyp), [1, 2]);
-        let decoderFeeds = { y: decoderInput };
-        if (this.sessions.decoder.inputNames.includes('need_pad')) {
-            decoderFeeds.need_pad = new ort.Tensor('int64', new BigInt64Array([0n]), [1]);
-        }
-        let decoderOutResult = await this.sessions.decoder.run(decoderFeeds);
-        let decoderOut = decoderOutResult[this.sessions.decoder.outputNames[0]];
+
+        const runDecoder = async (h) => {
+            const feeds = { y: new ort.Tensor('int64', h, [1, 2]) };
+            if (this.sessions.decoder.inputNames.includes('need_pad')) {
+                feeds.need_pad = zeroInt64;
+            }
+            const out = await this.sessions.decoder.run(feeds);
+            return out[this.sessions.decoder.outputNames[0]];
+        };
+
+        let decoderOut = await runDecoder(hyp);
 
         for (let t = 0; t < T; t++) {
             // Loop for standard Transducer greedy search
             let symPerFrame = 0;
-            while (symPerFrame < 5) {
-                // Joiner Input
-                // Use subarray for zero-copy view if possible (depends on typed array type)
-                // encoderData is likely Float32Array
+            while (symPerFrame < 10) {
                 const encOffset = t * C_enc;
                 const encFrameData = encoderData.subarray(encOffset, encOffset + C_enc);
                 const encFrameTensor = new ort.Tensor('float32', encFrameData, [1, C_enc]);
@@ -284,21 +275,15 @@ export class K2ASR extends BaseASR {
                 if (maxId !== 0) { // 0 is Blank
                     results.push(maxId);
 
-                    // Update context: shift left and append new id
-                    hyp = [hyp[1], BigInt(maxId)];
+                    hyp[0] = hyp[1];
+                    hyp[1] = BigInt(maxId);
 
                     // Run Decoder again
-                    const nextDecoderInput = new ort.Tensor('int64', new BigInt64Array(hyp), [1, 2]);
-                    const nextDecoderFeeds = { y: nextDecoderInput };
-                    if (this.sessions.decoder.inputNames.includes('need_pad')) {
-                        nextDecoderFeeds.need_pad = new ort.Tensor('int64', new BigInt64Array([0n]), [1]);
-                    }
-                    const nextDecoderResults = await this.sessions.decoder.run(nextDecoderFeeds);
-                    decoderOut = nextDecoderResults[this.sessions.decoder.outputNames[0]];
+                    decoderOut = await runDecoder(hyp);
 
                     symPerFrame++;
                 } else {
-                    break; // Emit blank, move to next frame (t++)
+                    break;
                 }
             }
         }

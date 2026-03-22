@@ -7,6 +7,7 @@ export interface ProtocolMap {
     REQUEST_DOWNLOAD: (data: { profileIndex: number }) => void;
     GET_STATE: () => {
         isRecording: boolean;
+        currentTabId: number | null;
         currentProfileIndex: number;
         vadStatus: 'idle' | 'speech' | 'quiet' | 'loading';
     };
@@ -37,7 +38,7 @@ export interface ProtocolMap {
     UPDATE_SETTINGS: (data: { settings: any }) => void;
 
     // --- Offscreen to Content Script ---
-    RESULT: (data: { text: string; isFinal: boolean }) => void;
+    RESULT: (data: { text: string; isFinal: boolean; translatedText?: string | null }) => void;
     CLEAR: () => void;
     PERFORMANCE_WARNING: (data: { message: string }) => void;
 
