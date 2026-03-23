@@ -2,11 +2,7 @@ import { BaseASR } from "./BaseASR.js";
 import { MelFeatureExtractor } from "./MelFeatureExtractor.js";
 import * as ort from 'onnxruntime-web';
 
-const extensionRoot = new URL('/', self.location.href).href;
-
-console.log(extensionRoot);
-
-const wasmPaths = self.ort?.env?.wasm?.wasmPaths || extensionRoot;
+const wasmPaths = new URL('/', self.location.href).href;
 
 ort.env.wasm.wasmPaths = wasmPaths;
 

@@ -175,7 +175,6 @@
   }
 
   async function toggleRecording() {
-    console.log("Toggle Recording clicked. Current state:", isRecording);
     if (!isRecording) {
       // Find Selected Profile
       const profile = profiles.find((p) => p.id === selectedProfileId);
@@ -192,8 +191,6 @@
       const tab = tabs[0];
 
       if (tab) {
-        console.log("Found active tab:", tab.id);
-
         isLoading = true; // Set loading state
         pendingTabId = tab.id; // Store tab ID for later
 

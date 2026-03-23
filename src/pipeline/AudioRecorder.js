@@ -13,8 +13,7 @@ export class AudioRecorder {
         this.audioContext = null;
         this.sourceNode = null;
 
-        // Sliding window mode
-        this.workletNode = null;
+        // Sliding window mode (using micVAD for audio processing)
         this.slidingWindowProcessor = null;
     }
 
@@ -120,6 +119,23 @@ export class AudioRecorder {
     async _startSlidingWindowMode() {
         const { windowSeconds, stepSeconds, volumeThreshold } = pipelineConfig.slidingWindow;
 
+        // 直接使用 micVAD 處理 audio，自製 resampler-worklet
+        this.vadInstance = await MicVAD.new({
+            getStream: () => this.stream,
+            baseAssetPath: browser.runtime.getURL('/'),
+            onnxWASMBasePath: browser.runtime.getURL('/'),
+            positiveSpeechThreshold: 1,
+            negativeSpeechThreshold: 0,
+            model: 'v5',
+            sampleRate: 16000,
+            onFrameProcessed: (probs, frame) => {
+                if (frame && frame.length > 0) {
+                    this.slidingWindowProcessor.feed(frame);
+                }
+            }
+        });
+
+        // Initialize sliding window processor
         this.slidingWindowProcessor = new SlidingWindowProcessor({
             windowSeconds,
             stepSeconds,
@@ -130,45 +146,21 @@ export class AudioRecorder {
             }
         });
 
-        // Register and create AudioWorklet for resampling
-        const workletUrl = browser.runtime.getURL('resampler-worklet.js');
-        await this.audioContext.audioWorklet.addModule(workletUrl);
-
-        this.workletNode = new AudioWorkletNode(this.audioContext, 'resampler-worklet-processor', {
-            processorOptions: {
-                sampleRate: this.audioContext.sampleRate
-            }
-        });
-
-        // Receive resampled 16kHz PCM from worklet
-        this.workletNode.port.onmessage = (event) => {
-            if (event.data.type === 'audio') {
-                this.slidingWindowProcessor.feed(event.data.samples);
-            }
-        };
-
-        // Connect: source -> worklet -> destination (for playback passthrough)
-        this.sourceNode.disconnect();
-        this.sourceNode.connect(this.workletNode);
-        this.sourceNode.connect(this.audioContext.destination);
-
-        console.log(`[AudioRecorder] Sliding Window Started (window=${windowSeconds}s, step=${stepSeconds}s, volumeThreshold=${volumeThreshold}, inputSampleRate=${this.audioContext.sampleRate}Hz)`);
+        // Start micVAD to process audio stream at 16kHz
+        this.vadInstance.start();
+        console.log(`[AudioRecorder] Sliding Window Mode`);
     }
 
     stopRecording() {
         pipelineController.processing = false;
 
-        // Stop VAD mode
+        // Stop VAD 
         if (this.vadInstance) {
             this.vadInstance.pause();
             this.vadInstance = null;
         }
 
-        // Stop Sliding Window mode
-        if (this.workletNode) {
-            this.workletNode.disconnect();
-            this.workletNode = null;
-        }
+        // Stop Sliding Window processor
         if (this.slidingWindowProcessor) {
             this.slidingWindowProcessor.reset();
             this.slidingWindowProcessor = null;

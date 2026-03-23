@@ -5,8 +5,7 @@ import { BaseASR } from "./BaseASR.js";
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
-const extensionRoot = new URL('/', self.location.href).href;
-const wasmPaths = self.ort?.env?.wasm?.wasmPaths || extensionRoot;
+const wasmPaths = new URL('/', self.location.href).href;
 
 env.backends.onnx.wasm.wasmPaths = wasmPaths;
 env.backends.onnx.logLevel = 'error';
