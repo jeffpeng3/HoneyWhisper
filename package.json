@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
-    "@jeffpeng3/nemotron-asr-core": "^0.2.2",
+    "@jeffpeng3/nemotron-asr-core": "^0.2.3",
     "@ricky0123/vad-web": "^0.0.30",
     "@webext-core/messaging": "^2.3.0",
     "@webext-core/storage": "^1.2.0",

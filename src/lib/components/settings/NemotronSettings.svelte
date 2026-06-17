@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Label } from "$lib/components/ui/label/index.js";
     import Combobox from "$lib/components/ui/combobox/Combobox.svelte";
-    import { i18n } from "#i18n";
+    import { getNemotronLanguages } from "$lib/nemotron-languages";
 
     let {
         profile = $bindable("NORMAL"),
@@ -31,16 +31,7 @@
         { value: "5", label: "5" },
     ];
 
-    const LANGUAGES = [
-        { code: "ja", name: "日本語" },
-        { code: "en", name: "English" },
-        { code: "zh", name: "中文" },
-        { code: "es", name: "Español" },
-        { code: "fr", name: "Français" },
-        { code: "de", name: "Deutsch" },
-        { code: "ko", name: "한국어" },
-        { code: "auto", name: i18n.t("options.autoDetect") },
-    ];
+    const LANGUAGES = getNemotronLanguages();
 </script>
 
 <div class="space-y-4">
@@ -74,7 +65,7 @@
         <Label>{i18n.t("options.sourceLanguage")}</Label>
         <Combobox
             value={language}
-            options={LANGUAGES.map((l) => ({ value: l.code, label: l.name }))}
+            options={LANGUAGES}
             onSelect={(v: string) => {
                 language = v;
                 onSave();
