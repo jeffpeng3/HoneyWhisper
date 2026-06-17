@@ -25,6 +25,11 @@
   let asrBackend = "nemotron";
   let nemotronProfile = "NORMAL";
   let beamWidth = 1;
+  let vadEnabled = false;
+  let vadThreshold = 0.01;
+  let vadMinSpeech = 0.25;
+  let vadMinSilence = 0.4;
+  let vadHold = 0.15;
 
   let installedModels = [];
   let statusMessage = "";
@@ -43,6 +48,11 @@
     language = items.language;
     nemotronProfile = items.nemotronProfile || "NORMAL";
     beamWidth = items.beamWidth || 1;
+    vadEnabled = items.vadEnabled ?? false;
+    vadThreshold = items.vadThreshold ?? 0.01;
+    vadMinSpeech = items.vadMinSpeech ?? 0.25;
+    vadMinSilence = items.vadMinSilence ?? 0.4;
+    vadHold = items.vadHold ?? 0.15;
     fontSize = parseInt(items.fontSize);
     historyLines = parseInt(items.historyLines);
     translationEnabled = items.translationEnabled;
@@ -57,6 +67,11 @@
       extensionStorage.setItem("language", language),
       extensionStorage.setItem("nemotronProfile", nemotronProfile),
       extensionStorage.setItem("beamWidth", beamWidth),
+      extensionStorage.setItem("vadEnabled", vadEnabled),
+      extensionStorage.setItem("vadThreshold", vadThreshold),
+      extensionStorage.setItem("vadMinSpeech", vadMinSpeech),
+      extensionStorage.setItem("vadMinSilence", vadMinSilence),
+      extensionStorage.setItem("vadHold", vadHold),
       extensionStorage.setItem("fontSize", String(fontSize)),
       extensionStorage.setItem("historyLines", historyLines),
       extensionStorage.setItem("translationEnabled", translationEnabled),
@@ -77,6 +92,11 @@
         asrBackend,
         nemotronProfile,
         beamWidth,
+        vadEnabled,
+        vadThreshold,
+        vadMinSpeech,
+        vadMinSilence,
+        vadHold,
       },
     }).catch(() => {});
 
@@ -216,6 +236,11 @@
       bind:language
       bind:nemotronProfile
       bind:beamWidth
+      bind:vadEnabled
+      bind:vadThreshold
+      bind:vadMinSpeech
+      bind:vadMinSilence
+      bind:vadHold
       onSave={saveSettings}
     />
   {/if}

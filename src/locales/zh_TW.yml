@@ -34,9 +34,16 @@ options:
   generalTab: 一般
   asrTab: ASR
   asrBackend: ASR 後端引擎
-  profile: 設定檔
-  beamWidth: Beam 寬度
+  profile: 延遲
+  beamWidth: 解碼精度
+  beamFast: 較快
+  beamSlow: 較慢
   noSettingsForBackend: 此後端無可用設定。
+  vad: 語音活動偵測 (VAD)
+  vadThreshold: 靜音閾值
+  vadMinSpeech: 最短語音時間
+  vadMinSilence: 最短靜音時間
+  vadHold: 保持時間
 update:
   title: 更新
   checkUpdate: 檢查更新
@@ -65,6 +72,17 @@ advanced:
   clearCache: 清除已下載的模型
   noModels: 無已快取的模型。
   resetAll: 重置所有設定與資料
+
+benchmark:
+  title: "效能測試"
+  run: "▶ 執行測試"
+  running: "執行中..."
+  initializing: "正在初始化模型..."
+  profileLabel: "延遲設定"
+  beam: "Beam={0}"
+  desc: "測試效能以找出適合你裝置的延遲檔位。"
+  note: "顯示速度倍率 (1/RTF)。綠色表示即時 (≥1.1×)，紅色表示較慢。"
+  errorPrefix: "錯誤: "
 
 content:
   initializing: 正在初始化 HoneyWhisper...

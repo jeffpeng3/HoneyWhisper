@@ -5,6 +5,11 @@ export interface ExtensionSettings {
     language: string;
     nemotronProfile: string;
     beamWidth: number;
+    vadEnabled: boolean;
+    vadThreshold: number;
+    vadMinSpeech: number;
+    vadMinSilence: number;
+    vadHold: number;
     fontSize: string;
     historyLines: number;
     translationEnabled: boolean;
@@ -20,6 +25,11 @@ export const defaultSettings: ExtensionSettings = {
     language: "ja",
     nemotronProfile: "NORMAL",
     beamWidth: 1,
+    vadEnabled: false,
+    vadThreshold: 0.01,
+    vadMinSpeech: 0.25,
+    vadMinSilence: 0.4,
+    vadHold: 0.15,
     fontSize: "24",
     historyLines: 1,
     translationEnabled: false,
@@ -33,6 +43,11 @@ export async function getSettings(): Promise<ExtensionSettings> {
     const language = await extensionStorage.getItem('language') ?? defaultSettings.language;
     const nemotronProfile = await extensionStorage.getItem('nemotronProfile') ?? defaultSettings.nemotronProfile;
     const beamWidth = await extensionStorage.getItem('beamWidth') ?? defaultSettings.beamWidth;
+    const vadEnabled = await extensionStorage.getItem('vadEnabled') ?? defaultSettings.vadEnabled;
+    const vadThreshold = await extensionStorage.getItem('vadThreshold') ?? defaultSettings.vadThreshold;
+    const vadMinSpeech = await extensionStorage.getItem('vadMinSpeech') ?? defaultSettings.vadMinSpeech;
+    const vadMinSilence = await extensionStorage.getItem('vadMinSilence') ?? defaultSettings.vadMinSilence;
+    const vadHold = await extensionStorage.getItem('vadHold') ?? defaultSettings.vadHold;
     const fontSize = await extensionStorage.getItem('fontSize') ?? defaultSettings.fontSize;
     const historyLines = await extensionStorage.getItem('historyLines') ?? defaultSettings.historyLines;
     const translationEnabled = await extensionStorage.getItem('translationEnabled') ?? defaultSettings.translationEnabled;
@@ -45,6 +60,11 @@ export async function getSettings(): Promise<ExtensionSettings> {
         language,
         nemotronProfile,
         beamWidth,
+        vadEnabled,
+        vadThreshold,
+        vadMinSpeech,
+        vadMinSilence,
+        vadHold,
         fontSize,
         historyLines,
         translationEnabled,

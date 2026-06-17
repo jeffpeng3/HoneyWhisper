@@ -26,6 +26,19 @@ export interface ProtocolMap {
     RESULT: (data: { text: string; isFinal: boolean; translatedText?: string | null }) => void;
     REMOVE_OVERLAY: () => void;
     DOWNLOAD_PROGRESS: (data: { progress: number; file: string; status?: string; cached?: boolean }) => void;
+    BENCHMARK_ASR: (data: { beamWidths: number[] }) => Array<{
+        profile: string;
+        beamWidth: number;
+        rtf: number;
+        latencyLabel: string;
+    }>;
+    BENCHMARK_RESULT: (data: Array<{
+        profile: string;
+        beamWidth: number;
+        rtf: number;
+        latencyLabel: string;
+    }>) => void;
+    CLOSE_OFFSCREEN: () => void;
 }
 
 export const { sendMessage, onMessage } = defineExtensionMessaging<ProtocolMap>();

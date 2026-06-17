@@ -34,9 +34,16 @@ options:
   generalTab: General
   asrTab: ASR
   asrBackend: ASR Backend
-  profile: Profile
+  profile: Latency
   beamWidth: Beam Width
+  beamFast: Fast
+  beamSlow: Slow
   noSettingsForBackend: No settings available for this backend.
+  vad: Voice Activity Detection
+  vadThreshold: Silence Threshold
+  vadMinSpeech: Min Speech Duration
+  vadMinSilence: Min Silence Duration
+  vadHold: Hold Time
 update:
   title: Updates
   checkUpdate: Check for Updates
@@ -65,6 +72,17 @@ advanced:
   clearCache: Clear Downloaded Models
   noModels: No models cached.
   resetAll: Reset ALL Settings & Data
+
+benchmark:
+  title: "Benchmark"
+  run: "▶ Run Benchmark"
+  running: "Running..."
+  initializing: "Initializing model..."
+  profileLabel: "Profile"
+  beam: "Beam={0}"
+  desc: "Test performance to find the best latency setting for your device."
+  note: "Showing speed factor (1/RTF). Green if real-time (≥1.1×), red if slower."
+  errorPrefix: "Error: "
 
 content:
   initializing: Initializing HoneyWhisper...

@@ -83,13 +83,28 @@ export class PipelineController {
             console.log('[ASR partial]', text, lang, progress);
         };
 
+        const vad = pipelineConfig.asr.vad;
         await this.asr.init({
             profile: pipelineConfig.asr.profile,
             beamWidth: pipelineConfig.asr.beamWidth,
+            vad: vad.enabled ? {
+                threshold: vad.threshold,
+                minSpeech: vad.minSpeech,
+                minSilence: vad.minSilence,
+                hold: vad.hold,
+            } : false,
             callbacks: { partial: partialCb },
         });
 
-        this.session = this.asr.createSession(toLangId(langId || pipelineConfig.asr.language));
+        this.session = this.asr.createSession(
+            toLangId(langId || pipelineConfig.asr.language),
+            vad.enabled ? {
+                threshold: vad.threshold,
+                minSpeech: vad.minSpeech,
+                minSilence: vad.minSilence,
+                hold: vad.hold,
+            } : false,
+        );
     }
 
     async feedAudio(chunk) {

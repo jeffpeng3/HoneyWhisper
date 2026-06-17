@@ -1,6 +1,7 @@
 import { sendMessage, onMessage } from '$lib/messaging';
 import { getSettings } from '$lib/settings';
 
+
 export default defineBackground(() => {
     const offscreenUrl = '/offscreen.html';
     let offscreenCreating;
@@ -72,6 +73,12 @@ export default defineBackground(() => {
 
     onMessage('MODEL_READY', () => {
         modelReady = true;
+    });
+
+    onMessage('CLOSE_OFFSCREEN', async () => {
+        try {
+            await browser.offscreen.closeDocument();
+        } catch (e) {}
     });
 
     onMessage('REQUEST_START', async (message) => {

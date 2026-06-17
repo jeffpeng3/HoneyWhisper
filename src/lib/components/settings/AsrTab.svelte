@@ -10,12 +10,22 @@
         language = $bindable("ja"),
         nemotronProfile = $bindable("NORMAL"),
         beamWidth = $bindable(1),
+        vadEnabled = $bindable(false),
+        vadThreshold = $bindable(0.01),
+        vadMinSpeech = $bindable(0.25),
+        vadMinSilence = $bindable(0.4),
+        vadHold = $bindable(0.15),
         onSave = () => {},
     }: {
         asrBackend: string;
         language: string;
         nemotronProfile: string;
         beamWidth: number;
+        vadEnabled: boolean;
+        vadThreshold: number;
+        vadMinSpeech: number;
+        vadMinSilence: number;
+        vadHold: number;
         onSave: () => void;
     } = $props();
 
@@ -48,6 +58,11 @@
                     bind:profile={nemotronProfile}
                     bind:beamWidth
                     bind:language
+                    bind:vadEnabled
+                    bind:vadThreshold
+                    bind:vadMinSpeech
+                    bind:vadMinSilence
+                    bind:vadHold
                     {onSave}
                 />
             {:else}

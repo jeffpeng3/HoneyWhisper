@@ -15,15 +15,15 @@ export class NemotronASR extends BaseASR {
     return this.engine?.ready ?? false;
   }
 
-  async init({ profile = 'NORMAL', beamWidth = 1, callbacks = {} } = {}) {
+  async init({ profile = 'NORMAL', beamWidth = 1, vad = false, callbacks = {} } = {}) {
     const wasmPaths = chrome.runtime.getURL('/');
-    this.engine = new AsrEngine(callbacks, { profile, beamWidth, wasmPaths });
+    this.engine = new AsrEngine(callbacks, { profile, beamWidth, vad, wasmPaths });
     await this.engine.init();
   }
 
-  createSession(langId) {
+  createSession(langId, vad) {
     if (!this.engine) throw new Error('Engine not initialized');
-    return this.engine.session(langId);
+    return this.engine.session(langId, vad);
   }
 
   async release() {

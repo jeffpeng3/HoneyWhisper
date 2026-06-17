@@ -34,9 +34,16 @@ options:
   generalTab: 一般
   asrTab: ASR
   asrBackend: ASR バックエンド
-  profile: プロファイル
+  profile: レイテンシー
   beamWidth: ビーム幅
+  beamFast: 高速
+  beamSlow: 低速
   noSettingsForBackend: このバックエンドの設定はありません。
+  vad: 音声検出 (VAD)
+  vadThreshold: 無音閾値
+  vadMinSpeech: 最低発話時間
+  vadMinSilence: 最低無音時間
+  vadHold: ホールド時間
 update:
   title: アップデート
   checkUpdate: 更新を確認
@@ -65,6 +72,17 @@ advanced:
   clearCache: ダウンロード済みモデルを削除
   noModels: キャッシュされたモデルはありません。
   resetAll: すべての設定とデータをリセット
+
+benchmark:
+  title: "ベンチマーク"
+  run: "▶ 実行"
+  running: "実行中..."
+  initializing: "モデルを初期化中..."
+  profileLabel: "プロファイル"
+  beam: "Beam={0}"
+  desc: "パフォーマンスをテストして、デバイスに最適なレイテンシー設定を見つけましょう。"
+  note: "速度倍率 (1/RTF)。緑=リアルタイム以上 (≥1.1×)、赤=遅い。"
+  errorPrefix: "エラー: "
 
 content:
   initializing: HoneyWhisperを初期化しています...
