@@ -133,6 +133,5 @@ export class DeepLTranslator extends BaseTranslator {
     }
 }
 
-
-// Register
 BaseTranslator.register('deepl', DeepLTranslator);
+

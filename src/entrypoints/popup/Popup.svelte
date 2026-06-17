@@ -21,16 +21,26 @@
   let cleanupListeners = [];
 
   onMount(async () => {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    activeTabTitle = tab?.title || i18n.t("popup.tabNameFallback");
-
-    const state = await sendMessage('GET_STATE', undefined).catch(() => ({}));
-    if (state.isRecording) {
-      isRecording = true;
+    try {
+      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+      activeTabTitle = tab?.title || i18n.t("popup.tabNameFallback");
+    } catch (e) {
+      console.warn('Popup: failed to get tab info', e);
     }
-    if (state.modelReady) {
-      modelReady = true;
-    } else {
+
+    try {
+      const state = await sendMessage('GET_STATE', undefined);
+      if (state.isRecording) {
+        isRecording = true;
+      }
+      if (state.modelReady) {
+        modelReady = true;
+      } else {
+        isDownloading = true;
+        sendMessage('INIT_MODEL', undefined).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Popup: background not ready yet, retrying', e);
       isDownloading = true;
       sendMessage('INIT_MODEL', undefined).catch(() => {});
     }

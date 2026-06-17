@@ -1,186 +1,128 @@
-import { MicVAD } from "@ricky0123/vad-web";
 import { sendMessage } from "$lib/messaging";
-import { browser } from 'wxt/browser';
-import { reportProgress } from "./ProgressTracker.js";
 import { pipelineConfig } from "./PipelineConfig.ts";
 import { pipelineController } from "./PipelineController.js";
-import { SlidingWindowProcessor } from "./SlidingWindowProcessor.js";
+
+const FLUSH_SAMPLES = 3200;
 
 export class AudioRecorder {
     constructor() {
         this.stream = null;
-        this.vadInstance = null;
-        this.audioContext = null;
-        this.sourceNode = null;
-
-        // Sliding window mode (using micVAD for audio processing)
-        this.slidingWindowProcessor = null;
-    }
-
-    async preloadVAD() {
-        console.log("Preloading VAD assets...");
-        const assets = [
-            'silero_vad_v5.onnx',
-            'vad.worklet.bundle.min.js'
-        ];
-
-        for (const asset of assets) {
-            try {
-                const url = browser.runtime.getURL(`${asset}`);
-                await fetch(url);
-            } catch (e) {
-                console.warn(`[Preload] Failed to fetch ${asset}:`, e);
-            }
-        }
-        console.log("VAD assets preloaded.");
+        this.passthroughCtx = null;
+        this.passthroughSource = null;
+        this.asrCtx = null;
+        this.asrSource = null;
+        this.workletNode = null;
+        this.audioBuffer = [];
+        this.recording = false;
     }
 
     async startRecording(streamId) {
-        if (this.vadInstance || this.workletNode) return;
-
         try {
-            await pipelineController.init();
+            await pipelineController.startStreaming(pipelineConfig.asr.language);
 
             this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     mandatory: {
                         chromeMediaSource: 'tab',
-                        chromeMediaSourceId: streamId
-                    }
+                        chromeMediaSourceId: streamId,
+                    },
                 },
-                video: false
+                video: false,
             });
 
-            if (!this.audioContext) {
-                this.audioContext = new AudioContext();
+            // --- Native passthrough: user hears original tab audio ---
+            this.passthroughCtx = new AudioContext();
+            if (this.passthroughCtx.state === 'suspended') {
+                await this.passthroughCtx.resume();
             }
-            if (this.audioContext.state === 'suspended') {
-                await this.audioContext.resume();
+            this.passthroughSource = this.passthroughCtx.createMediaStreamSource(this.stream);
+            this.passthroughSource.connect(this.passthroughCtx.destination);
+
+            // --- ASR processing at 16kHz (downsampled by browser automatically) ---
+            this.asrCtx = new AudioContext({ sampleRate: 16000 });
+            if (this.asrCtx.state === 'suspended') {
+                await this.asrCtx.resume();
             }
+            this.asrSource = this.asrCtx.createMediaStreamSource(this.stream);
 
-            if (this.sourceNode) {
-                this.sourceNode.disconnect();
-            }
-            this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
-            this.sourceNode.connect(this.audioContext.destination);
+            const workletUrl = chrome.runtime.getURL('/worklets/passthrough-processor.js');
+            await this.asrCtx.audioWorklet.addModule(workletUrl);
 
-            if (pipelineConfig.audioMode === 'sliding_window') {
-                console.log('[AudioRecorder] Mode: Sliding Window');
-                await this._startSlidingWindowMode();
-            } else {
-                console.log('[AudioRecorder] Mode: VAD');
-                await this._startVADMode();
-            }
+            this.workletNode = new AudioWorkletNode(this.asrCtx, 'passthrough-processor');
+            this.audioBuffer = [];
 
-            sendMessage('RECORDING_STARTED', undefined).catch(() => { });
-        } catch (err) {
-            console.error("Error starting recording:", err);
-            reportProgress({ status: 'error', error: err.message });
-        }
-    }
-
-    /** @private */
-    async _startVADMode() {
-        await this.preloadVAD();
-
-        this.vadInstance = await MicVAD.new({
-            getStream: () => this.stream,
-            baseAssetPath: browser.runtime.getURL('/'),
-            onnxWASMBasePath: browser.runtime.getURL('/'),
-            positiveSpeechThreshold: pipelineConfig.vad.positiveSpeechThreshold,
-            negativeSpeechThreshold: pipelineConfig.vad.negativeSpeechThreshold,
-            redemptionMs: pipelineConfig.vad.redemptionMs,
-            minSpeechMs: pipelineConfig.vad.minSpeechMs,
-            model: 'v5',
-            onSpeechRealStart: () => {
-                console.log("VAD: Speech Start");
-                sendMessage('VAD_STATUS', { status: 'speech' }).catch(() => { });
-            },
-            onSpeechEnd: (audio) => {
-                const lenSec = audio.length / 16000;
-                console.log(`VAD: Speech End (Length: ${lenSec.toFixed(2)}s)`);
-                sendMessage('VAD_STATUS', { status: 'quiet' }).catch(() => { });
-                pipelineController.generate(audio, true);
-            },
-            // onVADMisfire: () => {
-            //     console.log("VAD: Misfire");
-            //     sendMessage('VAD_STATUS', { status: 'idle' }).catch(() => { });
-            // },
-            onFrameProcessed: (frame) => {
-                console.log("VAD: Frame Processed", frame);
-            }
-        });
-
-        this.vadInstance.start();
-        console.log("VAD Started");
-    }
-
-    /** @private */
-    async _startSlidingWindowMode() {
-        const { windowSeconds, stepSeconds, volumeThreshold } = pipelineConfig.slidingWindow;
-
-        // 直接使用 micVAD 處理 audio，自製 resampler-worklet
-        this.vadInstance = await MicVAD.new({
-            getStream: () => this.stream,
-            baseAssetPath: browser.runtime.getURL('/'),
-            onnxWASMBasePath: browser.runtime.getURL('/'),
-            positiveSpeechThreshold: 1,
-            negativeSpeechThreshold: 0,
-            model: 'v5',
-            sampleRate: 16000,
-            onFrameProcessed: (probs, frame) => {
-                if (frame && frame.length > 0) {
-                    this.slidingWindowProcessor.feed(frame);
+            this.workletNode.port.onmessage = (e) => {
+                if (!this.recording) return;
+                this.audioBuffer.push(e.data);
+                const total = this.audioBuffer.reduce((sum, c) => sum + c.length, 0);
+                if (total >= FLUSH_SAMPLES) {
+                    const combined = new Float32Array(total);
+                    let offset = 0;
+                    for (const chunk of this.audioBuffer) {
+                        combined.set(chunk, offset);
+                        offset += chunk.length;
+                    }
+                    this.audioBuffer = [];
+                    pipelineController.feedAudio(combined).catch((err) => {
+                        console.error('Audio processing error:', err);
+                    });
                 }
-            }
-        });
+            };
 
-        // Initialize sliding window processor
-        this.slidingWindowProcessor = new SlidingWindowProcessor({
-            windowSeconds,
-            stepSeconds,
-            volumeThreshold,
-            sampleRate: 16000,
-            onWindowReady: (audioChunk) => {
-                pipelineController.generateSlidingWindow(audioChunk);
-            }
-        });
+            this.asrSource.connect(this.workletNode);
+            this.recording = true;
 
-        // Start micVAD to process audio stream at 16kHz
-        this.vadInstance.start();
-        console.log(`[AudioRecorder] Sliding Window Mode`);
+            sendMessage('RECORDING_STARTED', undefined).catch(() => {});
+            console.log('[AudioRecorder] Recording started');
+        } catch (err) {
+            console.error('Error starting recording:', err);
+            sendMessage('ASR_ERROR', { error: err.message }).catch(() => {});
+        }
     }
 
-    stopRecording() {
-        pipelineController.processing = false;
+    async stopRecording() {
+        this.recording = false;
+        this.audioBuffer = [];
 
-        // Stop VAD 
-        if (this.vadInstance) {
-            this.vadInstance.pause();
-            this.vadInstance = null;
+        if (this.workletNode) {
+            this.workletNode.disconnect();
+            this.workletNode.port.close();
+            this.workletNode = null;
         }
-
-        // Stop Sliding Window processor
-        if (this.slidingWindowProcessor) {
-            this.slidingWindowProcessor.reset();
-            this.slidingWindowProcessor = null;
+        if (this.asrSource) {
+            this.asrSource.disconnect();
+            this.asrSource = null;
         }
-
+        if (this.asrCtx) {
+            await this.asrCtx.close();
+            this.asrCtx = null;
+        }
+        if (this.passthroughSource) {
+            this.passthroughSource.disconnect();
+            this.passthroughSource = null;
+        }
+        if (this.passthroughCtx) {
+            await this.passthroughCtx.close();
+            this.passthroughCtx = null;
+        }
         if (this.stream) {
-            this.stream.getTracks().forEach(t => t.stop());
+            this.stream.getTracks().forEach((t) => t.stop());
             this.stream = null;
         }
 
-        if (this.sourceNode) {
-            this.sourceNode.disconnect();
-            this.sourceNode = null;
+        if (this.audioBuffer.length > 0) {
+            const total = this.audioBuffer.reduce((sum, c) => sum + c.length, 0);
+            const combined = new Float32Array(total);
+            let offset = 0;
+            for (const chunk of this.audioBuffer) {
+                combined.set(chunk, offset);
+                offset += chunk.length;
+            }
+            this.audioBuffer = [];
+            await pipelineController.feedAudio(combined).catch(() => {});
         }
 
-        sendMessage('CLEAR', undefined).catch(() => { });
-
-        // Flush any remaining text in sliding window mode
-        pipelineController.flushStitcher();
-        pipelineController.releaseASR().catch(err => console.error("Error releasing pipeline:", err));
+        await pipelineController.stop();
         console.log('[AudioRecorder] Recording stopped');
     }
 }

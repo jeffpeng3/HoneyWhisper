@@ -18,6 +18,16 @@ export class BaseTranslator {
     }
 
     /**
+     * Whether this translator supports translating preview (interim) text.
+     * API-based translators (Google, DeepL) should return false to avoid
+     * wasting quota on unstable text. LLM-based translators can return true.
+     * @returns {boolean}
+     */
+    get supportsPreview() {
+        return false;
+    }
+
+    /**
      * Translate text
      * @param {string} text 
      * @param {string} sourceLang 
