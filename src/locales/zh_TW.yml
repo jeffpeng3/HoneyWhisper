@@ -1,0 +1,67 @@
+name: HoneyWhisper
+description: 瀏覽器內建的即時 AI 語音轉譯與翻譯擴充功能。
+popup:
+  title: HoneyWhisper 控制面板
+  ready: 準備就緒
+  recording: 錄音中...
+  idle: 待機
+  start: 開始
+  stop: 停止
+  settings: 設定
+  startCaption: 開始擷取
+  stopCaption: 停止擷取
+  downloadingModel: 載入模型中...
+  finishingDownload: 即將完成下載...
+  downloadComplete: 下載完成！
+  downloadFailed: 下載快取失敗。
+  errorPrefix: "錯誤: "
+  unknownError: "未知錯誤"
+  tabNameFallback: "分頁名稱"
+options:
+  title: 設定
+  displayTab: 顯示設定
+  language: 轉譯語言
+  translation: 翻譯設定
+  enableTranslation: 啟用翻譯
+  translationService: 翻譯服務
+  targetLanguage: 目標語言
+  showOriginal: 顯示原文
+  sourceLanguage: 來源語言
+  fontSize: 字體大小 (px)
+  historyLines: 保留歷史字幕行數
+  cannotBeEmpty: 不能為空。
+  autoDetect: 自動偵測 (不穩定)
+update:
+  title: 更新
+  checkUpdate: 檢查更新
+  currentVersion: "當前版本: "
+  checking: 檢查中...
+  check: 檢查更新
+  upToDate: 已是最新版本！
+  available: "有新版本: "
+  failed: 檢查失敗，請重試。
+  isLatest: 您目前使用的是最新版本。
+  checkFailed: 檢查更新失敗。
+  viewRelease: 查看版本資訊
+messages:
+  settingsSaved: 設定已儲存
+  clearedCache: 所有的快取已清除。
+  clearCacheError: "清除快取時發生錯誤: "
+  noModelsCached: 無已快取模型。
+  resetConfirm: 確定要刪除所有資料嗎？這將會清除所有設定與已下載的模型。此動作無法復原。
+  resetSuccess: 所有資料已重設。正在重新載入預設值...
+  resetError: "重設資料時發生錯誤: "
+  clearCacheConfirm: 確定要刪除所有已下載的模型嗎？
+advanced:
+  debug: 除錯工具
+  debugDesc: 故障排除與重置工具。
+  checkCache: 檢查已下載的模型
+  clearCache: 清除已下載的模型
+  noModels: 無已快取的模型。
+  resetAll: 重置所有設定與資料
+
+content:
+  initializing: 正在初始化 HoneyWhisper...
+  loading: "載入中: "
+  modelReady: 模型已就緒
+  initiatingModel: 啟動模型中...

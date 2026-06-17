@@ -1,39 +1,19 @@
 import { resolve } from 'node:path';
 import { defineWxtModule } from 'wxt/modules';
 
+const ORT_DIR = 'node_modules/@jeffpeng3/nemotron-asr-core/node_modules/onnxruntime-web/dist';
+
+const WASM_FILES = [
+    'ort-wasm-simd-threaded.asyncify.wasm',
+    'ort-wasm-simd-threaded.asyncify.mjs',
+];
+
 export default defineWxtModule((wxt) => {
     wxt.hook('build:publicAssets', (_, assets) => {
-        const copyAssets = [
-            {
-                src: 'node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js',
-                dest: 'vad.worklet.bundle.min.js',
-            },
-            {
-                src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_v5.onnx',
-                dest: 'silero_vad_v5.onnx',
-            },
-            {
-                src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm',
-                dest: 'ort-wasm-simd-threaded.jsep.wasm',
-            },
-            {
-                src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm',
-                dest: 'ort-wasm-simd-threaded.wasm',
-            },
-            {
-                src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs',
-                dest: 'ort-wasm-simd-threaded.jsep.mjs',
-            },
-            {
-                src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs',
-                dest: 'ort-wasm-simd-threaded.mjs',
-            }
-        ];
-
-        for (const asset of copyAssets) {
+        for (const file of WASM_FILES) {
             assets.push({
-                absoluteSrc: resolve(process.cwd(), asset.src),
-                relativeDest: asset.dest,
+                absoluteSrc: resolve(process.cwd(), ORT_DIR, file),
+                relativeDest: file,
             });
         }
     });

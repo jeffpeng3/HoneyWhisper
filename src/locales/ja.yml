@@ -1,0 +1,67 @@
+name: HoneyWhisper
+description: ブラウザ内蔵のリアルタイム AI 音声認識と翻訳拡張機能。
+popup:
+  title: HoneyWhisper
+  ready: 準備完了
+  recording: 録音中...
+  idle: 待機中
+  start: 開始
+  stop: 停止
+  settings: 設定
+  startCaption: キャプチャを開始
+  stopCaption: キャプチャを停止
+  downloadingModel: モデルを読み込み中...
+  finishingDownload: ダウンロードを完了しています...
+  downloadComplete: ダウンロード完了！
+  downloadFailed: ダウンロードに失敗しました。
+  errorPrefix: "エラー: "
+  unknownError: "不明なエラー"
+  tabNameFallback: "タブ名"
+options:
+  title: 設定
+  displayTab: 表示
+  language: 認識言語
+  translation: 翻訳
+  enableTranslation: 翻訳を有効にする
+  translationService: 翻訳サービス
+  targetLanguage: ターゲット言語
+  showOriginal: 元のテキストを表示
+  sourceLanguage: ソース言語
+  fontSize: フォントサイズ
+  historyLines: 履歴の行数
+  cannotBeEmpty: 空にすることはできません。
+  autoDetect: 自動検出 (不安定)
+update:
+  title: アップデート
+  checkUpdate: 更新を確認
+  currentVersion: "現在のバージョン: "
+  checking: 確認中...
+  check: 更新を確認
+  upToDate: 最新版です！
+  available: "アップデートあり: "
+  failed: チェックに失敗しました。再試行してください。
+  isLatest: 最新のバージョンを使用しています。
+  checkFailed: アップデートの確認に失敗しました。
+  viewRelease: リリースノートを見る
+messages:
+  settingsSaved: 設定を保存しました
+  clearedCache: すべてのキャッシュをクリアしました。
+  clearCacheError: "キャッシュクリアエラー: "
+  noModelsCached: キャッシュされたモデルはありません。
+  resetConfirm: すべてのデータを削除してよろしいですか？これにより、すべての設定、およびダウンロードしたモデルが削除されます。この操作は元に戻せません。
+  resetSuccess: すべてのデータをリセットしました。デフォルトを再読み込み中...
+  resetError: "データリセットエラー: "
+  clearCacheConfirm: ダウンロードしたすべてのモデルを削除してよろしいですか？
+advanced:
+  debug: デバッグツール
+  debugDesc: トラブルシューティングとリセットのためのツール。
+  checkCache: ダウンロード済みモデルを確認
+  clearCache: ダウンロード済みモデルを削除
+  noModels: キャッシュされたモデルはありません。
+  resetAll: すべての設定とデータをリセット
+
+content:
+  initializing: HoneyWhisperを初期化しています...
+  loading: "読み込み中: "
+  modelReady: モデルの準備完了
+  initiatingModel: モデルを起動しています...

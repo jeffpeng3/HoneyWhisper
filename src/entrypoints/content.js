@@ -15,7 +15,6 @@ export default defineContentScript({
 
         let historyBuffer = [];
         let maxHistoryLines = 1;
-        let lastFinalText = null;
 
         async function createOverlay() {
             if (overlayEl) return;
@@ -49,13 +48,11 @@ export default defineContentScript({
 
             document.body.appendChild(overlayEl);
 
-            // Cache child elements
             historyEl = document.getElementById('whisper-history');
             currentEl = document.getElementById('whisper-current');
 
             makeDraggable(overlayEl);
 
-            // Load settings
             const settings = await getSettings();
             if (settings.fontSize) {
                 overlayEl.style.fontSize = `${settings.fontSize}px`;
@@ -77,18 +74,14 @@ export default defineContentScript({
 
             document.addEventListener('mousemove', (e) => {
                 if (!isMouseDown) return;
-
                 const deltaX = e.clientX - startX;
                 const deltaY = e.clientY - startY;
-
                 if (!isDragging) {
                     if (Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD) {
                         isDragging = true;
                         const rect = element.getBoundingClientRect();
-
                         initialLeft = rect.left + (rect.width / 2);
                         initialTop = rect.top;
-
                         element.style.bottom = 'auto';
                         element.style.transform = 'translateX(-50%)';
                         element.style.left = `${initialLeft}px`;
@@ -96,7 +89,6 @@ export default defineContentScript({
                         element.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
                     }
                 }
-
                 if (isDragging) {
                     element.style.left = `${initialLeft + deltaX}px`;
                     element.style.top = `${initialTop + deltaY}px`;
@@ -135,13 +127,18 @@ export default defineContentScript({
 
             const data = message.data;
 
-            if (data.text && lastFinalText !== null) {
-                historyBuffer.push(lastFinalText);
+            if (data.isFinal && data.text) {
+                let historyEntry;
+                if (data.translatedText) {
+                    historyEntry = `<div>${data.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${data.text}</div>`;
+                } else {
+                    historyEntry = data.text;
+                }
+                historyBuffer.push(historyEntry);
                 while (historyBuffer.length > maxHistoryLines) {
                     historyBuffer.shift();
                 }
                 updateHistoryDisplay();
-                lastFinalText = null;
             }
 
             if (data.translatedText) {
@@ -151,19 +148,9 @@ export default defineContentScript({
             }
             overlayEl.style.display = 'block';
 
-            if (data.isFinal && data.text) {
-                if (data.translatedText) {
-                    lastFinalText = `<div>${data.translatedText}</div><div style="font-size: 0.8em; opacity: 0.8;">${data.text}</div>`;
-                } else {
-                    lastFinalText = data.text;
-                }
-            }
-
-            if (!data.text && historyBuffer.length === 0 && !lastFinalText) {
+            if (!data.text && historyBuffer.length === 0) {
                 overlayEl.style.display = 'none';
             }
-
-            updateHistoryDisplay();
         }
 
         function handleUpdateSettings(message) {
@@ -185,71 +172,14 @@ export default defineContentScript({
                 overlayEl.style.display = 'none';
                 if (currentEl) currentEl.innerText = '';
                 historyBuffer = [];
-                lastFinalText = null;
                 updateHistoryDisplay();
             }
         }
 
-        function handleDownloadProgress(message) {
-            const data = message.data;
-            if (!overlayEl) createOverlay();
-
-            if (overlayEl && currentEl) {
-                overlayEl.style.display = 'block';
-                if (data.status === 'progress' || (data.progress && data.progress > 0 && data.progress < 100)) {
-                    if (data.progress) {
-                        currentEl.innerText = `${i18n.t('content.loading')}${Math.round(data.progress)}%`;
-                    }
-                } else if (data.status === 'done' || data.progress === 100) {
-                    currentEl.innerText = i18n.t('content.modelReady');
-                    setTimeout(() => {
-                        if (currentEl.innerText === i18n.t('content.modelReady')) {
-                            currentEl.innerText = '';
-                            if (historyBuffer.length === 0) overlayEl.style.display = 'none';
-                        }
-                    }, 2000);
-                } else if (data.status === 'initiate') {
-                    currentEl.innerText = i18n.t('content.initiatingModel');
-                }
-            }
-        }
-
-        function handlePerformanceWarning() {
-            if (!overlayEl) createOverlay();
-            const warningId = 'whisper-perf-warning';
-            let warningEl = document.getElementById(warningId);
-
-            if (overlayEl) {
-                overlayEl.style.display = 'block';
-                if (!warningEl) {
-                    warningEl = document.createElement('div');
-                    warningEl.id = warningId;
-                    warningEl.style.color = '#ff4444';
-                    warningEl.style.fontSize = '0.8em';
-                    warningEl.style.marginBottom = '5px';
-                    warningEl.style.fontWeight = 'bold';
-                    overlayEl.insertBefore(warningEl, overlayEl.firstChild);
-                }
-
-                warningEl.innerText = i18n.t('content.systemOverload');
-
-                setTimeout(() => {
-                    const elToRemove = document.getElementById(warningId);
-                    if (elToRemove) {
-                        elToRemove.remove();
-                    }
-                }, 3000);
-            }
-        }
-
-        // Set up message listeners
         onMessage('RESULT', handleResult);
         onMessage('UPDATE_SETTINGS', handleUpdateSettings);
         onMessage('REMOVE_OVERLAY', handleRemoveOverlay);
-        onMessage('DOWNLOAD_PROGRESS', handleDownloadProgress);
-        onMessage('PERFORMANCE_WARNING', handlePerformanceWarning);
 
-        // Initial Settings Load
         const initialSettings = await getSettings();
         if (initialSettings.historyLines !== undefined) {
             maxHistoryLines = parseInt(initialSettings.historyLines);

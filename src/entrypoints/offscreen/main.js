@@ -1,10 +1,13 @@
-import "@/pipeline/registry_loader.js";
 import { onMessage } from "$lib/messaging";
 import { updatePipelineConfig } from "@/pipeline/PipelineConfig.ts";
 import { pipelineController } from "@/pipeline/PipelineController.js";
 import { audioRecorder } from "@/pipeline/AudioRecorder.js";
 
-console.log("HoneyWhisper Offscreen Script Loaded (Pipeline Architecture)");
+console.log("HoneyWhisper Offscreen Script Loaded (Nemotron)");
+
+pipelineController.preload().catch((err) => {
+    console.error('Auto-preload failed:', err);
+});
 
 onMessage('START_RECORDING', async (message) => {
     const settings = message.data.pipelineConfig || {};
@@ -13,16 +16,10 @@ onMessage('START_RECORDING', async (message) => {
 });
 
 onMessage('STOP_RECORDING', async () => {
-    audioRecorder.stopRecording();
+    await audioRecorder.stopRecording();
 });
 
 onMessage('UPDATE_SETTINGS', async (message) => {
     const settings = message.data || {};
     updatePipelineConfig(settings);
 });
-
-onMessage('DOWNLOAD_MODEL', async (message) => {
-    const settings = message.data.pipelineConfig || {};
-    await pipelineController.downloadModel(settings);
-});
-

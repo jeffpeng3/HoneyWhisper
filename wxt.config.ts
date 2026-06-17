@@ -21,6 +21,7 @@ function getPackageVersion(packageName: string) {
 }
 
 export default defineConfig({
+    srcDir: 'src',
     modules: ['@wxt-dev/module-svelte', '@wxt-dev/i18n/module'],
     manifest: {
         name: '__MSG_name__',
@@ -54,7 +55,7 @@ export default defineConfig({
         ],
         web_accessible_resources: [
             {
-                resources: ['*.wasm', '*.mjs', '*.onnx', 'vad.worklet.bundle.min.js'],
+                resources: ['*.wasm', '*.mjs', '*.onnx', 'vad.worklet.bundle.min.js', 'worklets/*.js'],
                 matches: ['<all_urls>'],
             },
         ],
@@ -76,9 +77,6 @@ export default defineConfig({
         },
         build: {
             target: 'esnext',
-        },
-        worker: {
-            format: 'es',
         },
     }),
 });
