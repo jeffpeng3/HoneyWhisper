@@ -5,11 +5,14 @@
   import { getSettings, extensionStorage } from "$lib/settings";
 
   import SettingsTab from "./SettingsTab.svelte";
+  import AsrTab from "$lib/components/settings/AsrTab.svelte";
 
   import { ModeWatcher } from "mode-watcher";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
   import { checkUpdate } from "$lib/version.js";
   import { i18n } from "#i18n";
+
+  let activeTab = "general";
 
   let language = "ja";
   let historyLines = 1;
@@ -18,6 +21,10 @@
   let translationService = "google";
   let targetLanguage = "zh-TW";
   let showOriginal = true;
+
+  let asrBackend = "nemotron";
+  let nemotronProfile = "NORMAL";
+  let beamWidth = 1;
 
   let installedModels = [];
   let statusMessage = "";
@@ -32,7 +39,10 @@
 
   async function loadSettings() {
     const items = await getSettings();
+    asrBackend = items.asrBackend || "nemotron";
     language = items.language;
+    nemotronProfile = items.nemotronProfile || "NORMAL";
+    beamWidth = items.beamWidth || 1;
     fontSize = parseInt(items.fontSize);
     historyLines = parseInt(items.historyLines);
     translationEnabled = items.translationEnabled;
@@ -43,7 +53,10 @@
 
   async function saveSettings() {
     await Promise.all([
+      extensionStorage.setItem("asrBackend", asrBackend),
       extensionStorage.setItem("language", language),
+      extensionStorage.setItem("nemotronProfile", nemotronProfile),
+      extensionStorage.setItem("beamWidth", beamWidth),
       extensionStorage.setItem("fontSize", String(fontSize)),
       extensionStorage.setItem("historyLines", historyLines),
       extensionStorage.setItem("translationEnabled", translationEnabled),
@@ -61,6 +74,9 @@
         targetLanguage,
         language,
         showOriginal,
+        asrBackend,
+        nemotronProfile,
+        beamWidth,
       },
     }).catch(() => {});
 
@@ -154,21 +170,53 @@
     </div>
   </div>
 
-  <SettingsTab
-    bind:translationEnabled
-    bind:showOriginal
-    bind:translationService
-    bind:targetLanguage
-    bind:language
-    bind:fontSize
-    bind:historyLines
-    {installedModels}
-    {updateStatus}
-    {updateData}
-    onSave={saveSettings}
-    onCheckUpdate={handleCheckUpdate}
-    onClearCache={clearCache}
-    onListModels={listModels}
-    onResetAll={resetAllData}
-  />
+  <div class="flex gap-1 mb-6 border-b">
+    <button
+      class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+      class:border-primary={activeTab === "general"}
+      class:border-transparent={activeTab !== "general"}
+      class:text-foreground={activeTab === "general"}
+      class:text-muted-foreground={activeTab !== "general"}
+      onclick={() => (activeTab = "general")}
+    >
+      {i18n.t("options.generalTab")}
+    </button>
+    <button
+      class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+      class:border-primary={activeTab === "asr"}
+      class:border-transparent={activeTab !== "asr"}
+      class:text-foreground={activeTab === "asr"}
+      class:text-muted-foreground={activeTab !== "asr"}
+      onclick={() => (activeTab = "asr")}
+    >
+      {i18n.t("options.asrTab")}
+    </button>
+  </div>
+
+  {#if activeTab === "general"}
+    <SettingsTab
+      bind:translationEnabled
+      bind:showOriginal
+      bind:translationService
+      bind:targetLanguage
+      bind:fontSize
+      bind:historyLines
+      {installedModels}
+      {updateStatus}
+      {updateData}
+      onSave={saveSettings}
+      onCheckUpdate={handleCheckUpdate}
+      onClearCache={clearCache}
+      onListModels={listModels}
+      onResetAll={resetAllData}
+    />
+  {:else}
+    <AsrTab
+      bind:asrBackend
+      bind:language
+      bind:nemotronProfile
+      bind:beamWidth
+      onSave={saveSettings}
+    />
+  {/if}
 </main>

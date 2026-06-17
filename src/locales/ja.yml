@@ -31,6 +31,12 @@ options:
   historyLines: 履歴の行数
   cannotBeEmpty: 空にすることはできません。
   autoDetect: 自動検出 (不安定)
+  generalTab: 一般
+  asrTab: ASR
+  asrBackend: ASR バックエンド
+  profile: プロファイル
+  beamWidth: ビーム幅
+  noSettingsForBackend: このバックエンドの設定はありません。
 update:
   title: アップデート
   checkUpdate: 更新を確認

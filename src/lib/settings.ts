@@ -1,6 +1,7 @@
 import { defineExtensionStorage } from '@webext-core/storage';
 
 export interface ExtensionSettings {
+    asrBackend: string;
     language: string;
     nemotronProfile: string;
     beamWidth: number;
@@ -15,6 +16,7 @@ export interface ExtensionSettings {
 export const extensionStorage = defineExtensionStorage<ExtensionSettings>(browser.storage.sync);
 
 export const defaultSettings: ExtensionSettings = {
+    asrBackend: "nemotron",
     language: "ja",
     nemotronProfile: "NORMAL",
     beamWidth: 1,
@@ -27,6 +29,7 @@ export const defaultSettings: ExtensionSettings = {
 };
 
 export async function getSettings(): Promise<ExtensionSettings> {
+    const asrBackend = await extensionStorage.getItem('asrBackend') ?? defaultSettings.asrBackend;
     const language = await extensionStorage.getItem('language') ?? defaultSettings.language;
     const nemotronProfile = await extensionStorage.getItem('nemotronProfile') ?? defaultSettings.nemotronProfile;
     const beamWidth = await extensionStorage.getItem('beamWidth') ?? defaultSettings.beamWidth;
@@ -38,6 +41,7 @@ export async function getSettings(): Promise<ExtensionSettings> {
     const showOriginal = await extensionStorage.getItem('showOriginal') ?? defaultSettings.showOriginal;
 
     return {
+        asrBackend,
         language,
         nemotronProfile,
         beamWidth,

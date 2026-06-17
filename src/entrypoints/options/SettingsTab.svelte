@@ -14,7 +14,6 @@
         showOriginal = $bindable(true),
         translationService = $bindable("google"),
         targetLanguage = $bindable("zh-TW"),
-        language = $bindable("ja"),
         fontSize = $bindable(24),
         historyLines = $bindable(1),
         installedModels = [],
@@ -30,7 +29,6 @@
         showOriginal: boolean;
         translationService: string;
         targetLanguage: string;
-        language: string;
         fontSize: number;
         historyLines: number;
         installedModels: string[];
@@ -42,17 +40,6 @@
         onListModels: () => void;
         onResetAll: () => void;
     } = $props();
-
-    const LANGUAGES = [
-        { code: "ja", name: "日本語" },
-        { code: "en", name: "English" },
-        { code: "zh", name: "中文" },
-        { code: "es", name: "Español" },
-        { code: "fr", name: "Français" },
-        { code: "de", name: "Deutsch" },
-        { code: "ko", name: "한국어" },
-        { code: "auto", name: i18n.t("options.autoDetect") },
-    ];
 
     const TARGET_LANGUAGES = [
         { code: "zh-TW", name: "繁體中文" },
@@ -133,26 +120,6 @@
                     />
                 </div>
             {/if}
-        </div>
-
-        <div class="space-y-4">
-            <h3 class="text-lg font-medium">{i18n.t("options.language")}</h3>
-            <div class="grid gap-2">
-                <Label>{i18n.t("options.sourceLanguage")}</Label>
-                <Combobox
-                    value={language}
-                    options={LANGUAGES.map((l) => ({
-                        value: l.code,
-                        label: l.name,
-                    }))}
-                    onSelect={(v: string) => {
-                        language = v;
-                        onSave();
-                    }}
-                    searchable={true}
-                    class="w-full"
-                />
-            </div>
         </div>
 
         <div class="space-y-4">

@@ -31,6 +31,12 @@ options:
   historyLines: 保留歷史字幕行數
   cannotBeEmpty: 不能為空。
   autoDetect: 自動偵測 (不穩定)
+  generalTab: 一般
+  asrTab: ASR
+  asrBackend: ASR 後端引擎
+  profile: 設定檔
+  beamWidth: Beam 寬度
+  noSettingsForBackend: 此後端無可用設定。
 update:
   title: 更新
   checkUpdate: 檢查更新
