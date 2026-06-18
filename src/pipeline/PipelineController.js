@@ -87,7 +87,7 @@ export class PipelineController {
         });
 
         this.session = this.asr.createSession(
-            this.asr.constructor.fromSharedCode(langId || pipelineConfig.asr.language),
+            langId || pipelineConfig.asr.language,
             vad.enabled ? {
                 threshold: vad.threshold,
                 minSpeech: vad.minSpeech,
@@ -171,7 +171,7 @@ export class PipelineController {
     async _translate(text) {
         if (!this.translator || !text) return null;
         try {
-            return await this.translator.translate(text, pipelineConfig.asr.language, pipelineConfig.translation.target);
+            return await this.translator.translate(text, this.asr.detectedLanguage, pipelineConfig.translation.target);
         } catch (err) {
             console.warn('Translation failed:', err);
             return null;

@@ -1,14 +1,14 @@
 export class BaseASR {
-  static fromSharedCode(code) {
-    return code;
-  }
-
   static async preload(onProgress) {
     // optional; subclasses may override
   }
 
   async preload(onProgress) {
     return this.constructor.preload(onProgress);
+  }
+
+  get detectedLanguage() {
+    return 'auto';
   }
 
   async init(options) {
