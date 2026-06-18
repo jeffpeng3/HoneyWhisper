@@ -3,10 +3,6 @@ export class BaseASR {
     return code;
   }
 
-  static toSharedCode(internal) {
-    return internal;
-  }
-
   static async preload(onProgress) {
     // optional; subclasses may override
   }

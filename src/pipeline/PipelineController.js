@@ -1,8 +1,8 @@
-import { BaseTranslator } from "./Translation/index.js";
+import { BaseTranslator } from "../engine/translation/index.js";
 import { sendMessage } from "$lib/messaging";
 import { pipelineConfig } from "./PipelineConfig.ts";
 import { Segmenter } from "./Segmenter.js";
-import { createASR } from "../asr-backend/index.js";
+import { createASR } from "../engine/asr/index.js";
 
 const NORM_TARGET = 0.85;
 
