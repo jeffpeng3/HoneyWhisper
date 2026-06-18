@@ -1,4 +1,3 @@
-import { langId as nemotronLangId } from '@jeffpeng3/nemotron-asr-core';
 import { BaseTranslator } from "./Translation/index.js";
 import { sendMessage } from "$lib/messaging";
 import { pipelineConfig } from "./PipelineConfig.ts";
@@ -6,12 +5,6 @@ import { Segmenter } from "./Segmenter.js";
 import { createASR } from "../asr-backend/index.js";
 
 const NORM_TARGET = 0.85;
-
-function toLangId(lang) {
-    if (lang === 'auto') return 101;
-    const id = nemotronLangId(lang);
-    return id !== null ? id : 101;
-}
 
 export class PipelineController {
     constructor() {
@@ -61,9 +54,6 @@ export class PipelineController {
         this.segmenter = new Segmenter({ timeoutMs: 500 });
         this.segmenter.onTimeout = (text) => this._emitFinal(text);
 
-        const targetService = pipelineConfig.translation.service;
-        this.translator = BaseTranslator.create(targetService);
-
         const progressCb = (label, loaded, total, cached) => {
             sendMessage('DOWNLOAD_PROGRESS', {
                 progress: total > 0 ? (loaded / total) * 100 : 0,
@@ -97,7 +87,7 @@ export class PipelineController {
         });
 
         this.session = this.asr.createSession(
-            toLangId(langId || pipelineConfig.asr.language),
+            this.asr.constructor.fromSharedCode(langId || pipelineConfig.asr.language),
             vad.enabled ? {
                 threshold: vad.threshold,
                 minSpeech: vad.minSpeech,
@@ -173,8 +163,13 @@ export class PipelineController {
         sendMessage('RESULT', { text: displayText, translatedText, isFinal: false }).catch(() => {});
     }
 
+    syncTranslator() {
+        const service = pipelineConfig.translation.service;
+        this.translator = service !== 'none' ? BaseTranslator.create(service) : null;
+    }
+
     async _translate(text) {
-        if (!pipelineConfig.translation.enabled || !text) return null;
+        if (!this.translator || !text) return null;
         try {
             return await this.translator.translate(text, pipelineConfig.asr.language, pipelineConfig.translation.target);
         } catch (err) {

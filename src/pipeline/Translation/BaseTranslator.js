@@ -18,6 +18,15 @@ export class BaseTranslator {
     }
 
     /**
+     * Convert a shared language code to this translator's expected format.
+     * @param {string} code
+     * @returns {string}
+     */
+    static toEngineCode(code) {
+        return code;
+    }
+
+    /**
      * Whether this translator supports translating preview (interim) text.
      * API-based translators (Google, DeepL) should return false to avoid
      * wasting quota on unstable text. LLM-based translators can return true.

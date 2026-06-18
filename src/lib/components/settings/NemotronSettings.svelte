@@ -5,7 +5,7 @@
     import { Slider } from "$lib/components/ui/slider/index.js";
     import { Button } from "$lib/components/ui/button/index.js";
     import { i18n } from "#i18n";
-    import { getNemotronLanguages } from "$lib/nemotron-languages";
+    import { getAsrLanguages } from "$lib/languages/asr";
     import { sendMessage, onMessage } from "$lib/messaging";
     import { onDestroy } from "svelte";
 
@@ -45,7 +45,7 @@
         { value: "3", label: `3 (${i18n.t("options.beamSlow")})` },
     ];
 
-    const LANGUAGES = getNemotronLanguages();
+    const LANGUAGES = getAsrLanguages();
 
     const ALL_PROFILES = ["HIGH", "NORMAL", "BALANCED", "FAST", "TURBO"];
     const BEAM_DISPLAY = ["1", "2", "3"];

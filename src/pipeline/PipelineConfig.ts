@@ -14,7 +14,6 @@ export interface PipelineConfigType {
         vad: VadConfig;
     };
     translation: {
-        enabled: boolean;
         service: string;
         target: string;
         showOriginal: boolean;
@@ -29,8 +28,7 @@ export const pipelineConfig: PipelineConfigType = {
         vad: { enabled: false, threshold: 0.01, minSpeech: 0.25, minSilence: 0.4, hold: 0.15 },
     },
     translation: {
-        enabled: false,
-        service: 'google',
+        service: 'none',
         target: 'zh-TW',
         showOriginal: true,
     },
@@ -46,7 +44,6 @@ export function updatePipelineConfig(settings: any) {
     if (typeof settings.vadMinSilence !== 'undefined') pipelineConfig.asr.vad.minSilence = settings.vadMinSilence;
     if (typeof settings.vadHold !== 'undefined') pipelineConfig.asr.vad.hold = settings.vadHold;
 
-    if (typeof settings.translationEnabled !== 'undefined') pipelineConfig.translation.enabled = settings.translationEnabled;
     if (settings.translationService) pipelineConfig.translation.service = settings.translationService;
     if (settings.targetLanguage) pipelineConfig.translation.target = settings.targetLanguage;
     if (typeof settings.showOriginal !== 'undefined') pipelineConfig.translation.showOriginal = settings.showOriginal;

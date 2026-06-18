@@ -6,6 +6,7 @@
 
   import SettingsTab from "./SettingsTab.svelte";
   import AsrTab from "$lib/components/settings/AsrTab.svelte";
+  import TranslationTab from "$lib/components/settings/TranslationTab.svelte";
 
   import { ModeWatcher } from "mode-watcher";
   import ThemeToggle from "$lib/components/ThemeToggle.svelte";
@@ -17,8 +18,7 @@
   let language = "ja";
   let historyLines = 1;
   let fontSize = 24;
-  let translationEnabled = false;
-  let translationService = "google";
+  let translationService = "none";
   let targetLanguage = "zh-TW";
   let showOriginal = true;
 
@@ -55,8 +55,7 @@
     vadHold = items.vadHold ?? 0.15;
     fontSize = parseInt(items.fontSize);
     historyLines = parseInt(items.historyLines);
-    translationEnabled = items.translationEnabled;
-    translationService = items.translationService || "google";
+    translationService = items.translationService || "none";
     targetLanguage = items.targetLanguage;
     showOriginal = items.showOriginal !== undefined ? items.showOriginal : true;
   }
@@ -74,7 +73,6 @@
       extensionStorage.setItem("vadHold", vadHold),
       extensionStorage.setItem("fontSize", String(fontSize)),
       extensionStorage.setItem("historyLines", historyLines),
-      extensionStorage.setItem("translationEnabled", translationEnabled),
       extensionStorage.setItem("translationService", translationService),
       extensionStorage.setItem("targetLanguage", targetLanguage),
       extensionStorage.setItem("showOriginal", showOriginal),
@@ -84,7 +82,6 @@
 
     sendMessage("UPDATE_SETTINGS", {
       settings: {
-        translationEnabled,
         translationService,
         targetLanguage,
         language,
@@ -203,6 +200,16 @@
     </button>
     <button
       class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+      class:border-primary={activeTab === "translation"}
+      class:border-transparent={activeTab !== "translation"}
+      class:text-foreground={activeTab === "translation"}
+      class:text-muted-foreground={activeTab !== "translation"}
+      onclick={() => (activeTab = "translation")}
+    >
+      {i18n.t("options.translationTab")}
+    </button>
+    <button
+      class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
       class:border-primary={activeTab === "asr"}
       class:border-transparent={activeTab !== "asr"}
       class:text-foreground={activeTab === "asr"}
@@ -215,10 +222,6 @@
 
   {#if activeTab === "general"}
     <SettingsTab
-      bind:translationEnabled
-      bind:showOriginal
-      bind:translationService
-      bind:targetLanguage
       bind:fontSize
       bind:historyLines
       {installedModels}
@@ -229,6 +232,13 @@
       onClearCache={clearCache}
       onListModels={listModels}
       onResetAll={resetAllData}
+    />
+  {:else if activeTab === "translation"}
+    <TranslationTab
+      bind:service={translationService}
+      bind:targetLanguage
+      bind:showOriginal
+      onSave={saveSettings}
     />
   {:else}
     <AsrTab

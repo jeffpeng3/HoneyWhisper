@@ -14,6 +14,7 @@ pipelineController.preload().catch((err) => {
 onMessage('START_RECORDING', async (message) => {
     const settings = message.data.pipelineConfig || {};
     updatePipelineConfig(settings);
+    pipelineController.syncTranslator();
     await audioRecorder.startRecording(message.data.streamId);
 });
 
@@ -49,6 +50,7 @@ onMessage('BENCHMARK_ASR', async (message) => {
 onMessage('UPDATE_SETTINGS', async (message) => {
     const settings = message.data || {};
     updatePipelineConfig(settings);
+    pipelineController.syncTranslator();
 });
 
 

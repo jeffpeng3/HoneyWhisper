@@ -1,0 +1,51 @@
+export interface Language {
+    value: string;
+    label: string;
+}
+
+export const LANGUAGE_LABELS = {
+    'ar': 'العربية',
+    'bg': 'Български',
+    'cs': 'Čeština',
+    'da': 'Dansk',
+    'de': 'Deutsch',
+    'el': 'Ελληνικά',
+    'en': 'English',
+    'en-GB': 'English (UK)',
+    'en-US': 'English (US)',
+    'es': 'Español',
+    'es-ES': 'Español (Spain)',
+    'et': 'Eesti',
+    'fi': 'Suomi',
+    'fr': 'Français',
+    'fr-CA': 'Français (Canada)',
+    'he': 'עברית',
+    'hi': 'हिन्दी',
+    'hr': 'Hrvatski',
+    'hu': 'Magyar',
+    'it': 'Italiano',
+    'ja': '日本語',
+    'ko': '한국어',
+    'lt': 'Lietuvių',
+    'lv': 'Latviešu',
+    'mt': 'Malti',
+    'nb': 'Norsk Bokmål',
+    'nl': 'Nederlands',
+    'nn': 'Norsk Nynorsk',
+    'pl': 'Polski',
+    'pt': 'Português (Portugal)',
+    'pt-BR': 'Português (Brazil)',
+    'ro': 'Română',
+    'ru': 'Русский',
+    'sk': 'Slovenčina',
+    'sl': 'Slovenščina',
+    'sv': 'Svenska',
+    'th': 'ไทย',
+    'tr': 'Türkçe',
+    'uk': 'Українська',
+    'vi': 'Tiếng Việt',
+    'zh-CN': '简体中文',
+    'zh-TW': '繁體中文',
+} as const;
+
+export type LanguageCode = keyof typeof LANGUAGE_LABELS;

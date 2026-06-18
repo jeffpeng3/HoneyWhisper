@@ -12,7 +12,6 @@ export interface ExtensionSettings {
     vadHold: number;
     fontSize: string;
     historyLines: number;
-    translationEnabled: boolean;
     translationService: string;
     targetLanguage: string;
     showOriginal: boolean;
@@ -32,8 +31,7 @@ export const defaultSettings: ExtensionSettings = {
     vadHold: 0.15,
     fontSize: "24",
     historyLines: 1,
-    translationEnabled: false,
-    translationService: "google",
+    translationService: "none",
     targetLanguage: "zh-TW",
     showOriginal: true,
 };
@@ -50,7 +48,6 @@ export async function getSettings(): Promise<ExtensionSettings> {
     const vadHold = await extensionStorage.getItem('vadHold') ?? defaultSettings.vadHold;
     const fontSize = await extensionStorage.getItem('fontSize') ?? defaultSettings.fontSize;
     const historyLines = await extensionStorage.getItem('historyLines') ?? defaultSettings.historyLines;
-    const translationEnabled = await extensionStorage.getItem('translationEnabled') ?? defaultSettings.translationEnabled;
     const translationService = await extensionStorage.getItem('translationService') ?? defaultSettings.translationService;
     const targetLanguage = await extensionStorage.getItem('targetLanguage') ?? defaultSettings.targetLanguage;
     const showOriginal = await extensionStorage.getItem('showOriginal') ?? defaultSettings.showOriginal;
@@ -67,7 +64,6 @@ export async function getSettings(): Promise<ExtensionSettings> {
         vadHold,
         fontSize,
         historyLines,
-        translationEnabled,
         translationService,
         targetLanguage,
         showOriginal

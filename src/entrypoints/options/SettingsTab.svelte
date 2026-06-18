@@ -3,17 +3,11 @@
     import * as Card from "$lib/components/ui/card/index.js";
     import { Input } from "$lib/components/ui/input/index.js";
     import { Label } from "$lib/components/ui/label/index.js";
-    import { Switch } from "$lib/components/ui/switch/index.js";
     import { Slider } from "$lib/components/ui/slider/index.js";
-    import Combobox from "$lib/components/ui/combobox/Combobox.svelte";
     import { i18n } from "#i18n";
     import { browser } from "wxt/browser";
 
     let {
-        translationEnabled = $bindable(false),
-        showOriginal = $bindable(true),
-        translationService = $bindable("google"),
-        targetLanguage = $bindable("zh-TW"),
         fontSize = $bindable(24),
         historyLines = $bindable(1),
         installedModels = [],
@@ -25,10 +19,6 @@
         onListModels = () => {},
         onResetAll = () => {},
     }: {
-        translationEnabled: boolean;
-        showOriginal: boolean;
-        translationService: string;
-        targetLanguage: string;
         fontSize: number;
         historyLines: number;
         installedModels: string[];
@@ -40,22 +30,6 @@
         onListModels: () => void;
         onResetAll: () => void;
     } = $props();
-
-    const TARGET_LANGUAGES = [
-        { code: "zh-TW", name: "繁體中文" },
-        { code: "zh-CN", name: "简体中文" },
-        { code: "en", name: "English" },
-        { code: "ja", name: "日本語" },
-        { code: "ko", name: "한국어" },
-        { code: "es", name: "Español" },
-        { code: "fr", name: "Français" },
-        { code: "de", name: "Deutsch" },
-    ];
-
-    const TRANSLATION_SERVICES = [
-        { id: "google", name: "Google Translate" },
-        { id: "deepl", name: "DeepL" },
-    ];
 </script>
 
 <Card.Root>
@@ -63,65 +37,6 @@
         <Card.Title>{i18n.t("options.title")}</Card.Title>
     </Card.Header>
     <Card.Content class="space-y-6">
-        <div class="space-y-4">
-            <h3 class="text-lg font-medium">{i18n.t("options.translation")}</h3>
-            <div class="flex items-center justify-between">
-                <Label for="translation-mode"
-                    >{i18n.t("options.enableTranslation")}</Label
-                >
-                <Switch
-                    id="translation-mode"
-                    bind:checked={translationEnabled}
-                    onCheckedChange={onSave}
-                />
-            </div>
-            {#if translationEnabled}
-                <div class="flex items-center justify-between ml-4">
-                    <Label for="show-original"
-                        >{i18n.t("options.showOriginal")}</Label
-                    >
-                    <Switch
-                        id="show-original"
-                        bind:checked={showOriginal}
-                        onCheckedChange={onSave}
-                    />
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>{i18n.t("options.translationService")}</Label>
-                    <Combobox
-                        value={translationService}
-                        options={TRANSLATION_SERVICES.map((s) => ({
-                            value: s.id,
-                            label: s.name,
-                        }))}
-                        onSelect={(v: string) => {
-                            translationService = v;
-                            onSave();
-                        }}
-                        class="w-full"
-                    />
-                </div>
-
-                <div class="grid gap-2">
-                    <Label>{i18n.t("options.targetLanguage")}</Label>
-                    <Combobox
-                        value={targetLanguage}
-                        options={TARGET_LANGUAGES.map((l) => ({
-                            value: l.code,
-                            label: l.name,
-                        }))}
-                        onSelect={(v: string) => {
-                            targetLanguage = v;
-                            onSave();
-                        }}
-                        searchable={true}
-                        class="w-full"
-                    />
-                </div>
-            {/if}
-        </div>
-
         <div class="space-y-4">
             <h3 class="text-lg font-medium">{i18n.t("options.displayTab")}</h3>
             <div class="grid gap-2">

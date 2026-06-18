@@ -4,14 +4,14 @@ export class GoogleTranslator extends BaseTranslator {
     constructor() {
         super();
         this.maxRetries = 3;
-        this.baseDelay = 100; // ms
+        this.baseDelay = 100;
     }
 
     async translate(text, sourceLang, targetLang) {
         if (!text) return "";
 
-        const sl = sourceLang === 'auto' ? 'auto' : sourceLang;
-        const tl = targetLang || 'zh-TW';
+        const sl = this.constructor.toEngineCode(sourceLang);
+        const tl = this.constructor.toEngineCode(targetLang || 'zh-TW');
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
 
         let lastError;

@@ -43,14 +43,17 @@ function formatPostString(postData) {
 }
 
 export class DeepLTranslator extends BaseTranslator {
+    static toEngineCode(code) {
+        if (code === 'auto') return 'auto';
+        return code.toUpperCase().split('-')[0];
+    }
+
     async translate(text, sourceLang, targetLang) {
         if (!text) return "";
 
         try {
-            // Whisper gives us sourceLang, but DeepL expects uppercase codes usually
-            // DeepL handles "auto" as source well, but we have it from Whisper
-            const sl = sourceLang === 'auto' ? 'auto' : sourceLang.toUpperCase().split('-')[0];
-            const tl = targetLang ? targetLang.toUpperCase().split('-')[0] : 'ZH'; // Default to Chinese if missing
+            const sl = this.constructor.toEngineCode(sourceLang);
+            const tl = this.constructor.toEngineCode(targetLang || 'ZH');
 
             // Mimic logic for splitting text if needed (keeping it simple for now, per sentence usually)
             // But if text contains newlines, we should handle it or just send it.

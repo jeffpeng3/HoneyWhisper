@@ -17,6 +17,7 @@ popup:
   errorPrefix: "Error: "
   unknownError: "Unknown Error"
   tabNameFallback: "Tab Name"
+  stuckError: "Failed to load model. Please reload the extension."
 options:
   title: Settings
   displayTab: Display
@@ -32,6 +33,7 @@ options:
   cannotBeEmpty: Cannot be empty.
   autoDetect: Auto Detect (Unstable)
   generalTab: General
+  translationTab: Translation
   asrTab: ASR
   asrBackend: ASR Backend
   profile: Latency
@@ -39,6 +41,7 @@ options:
   beamFast: Fast
   beamSlow: Slow
   noSettingsForBackend: No settings available for this backend.
+  noTranslation: "None (disabled)"
   vad: Voice Activity Detection
   vadThreshold: Silence Threshold
   vadMinSpeech: Min Speech Duration

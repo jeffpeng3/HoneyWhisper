@@ -17,6 +17,7 @@ popup:
   errorPrefix: "エラー: "
   unknownError: "不明なエラー"
   tabNameFallback: "タブ名"
+  stuckError: "モデルの読み込みに失敗しました。拡張機能を再読み込みしてください。"
 options:
   title: 設定
   displayTab: 表示
@@ -32,6 +33,7 @@ options:
   cannotBeEmpty: 空にすることはできません。
   autoDetect: 自動検出 (不安定)
   generalTab: 一般
+  translationTab: 翻訳
   asrTab: ASR
   asrBackend: ASR バックエンド
   profile: レイテンシー
@@ -39,6 +41,7 @@ options:
   beamFast: 高速
   beamSlow: 低速
   noSettingsForBackend: このバックエンドの設定はありません。
+  noTranslation: なし (無効)
   vad: 音声検出 (VAD)
   vadThreshold: 無音閾値
   vadMinSpeech: 最低発話時間

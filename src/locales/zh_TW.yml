@@ -17,6 +17,7 @@ popup:
   errorPrefix: "錯誤: "
   unknownError: "未知錯誤"
   tabNameFallback: "分頁名稱"
+  stuckError: "無法載入模型，請重新載入擴充功能。"
 options:
   title: 設定
   displayTab: 顯示設定
@@ -32,6 +33,7 @@ options:
   cannotBeEmpty: 不能為空。
   autoDetect: 自動偵測 (不穩定)
   generalTab: 一般
+  translationTab: 翻譯
   asrTab: ASR
   asrBackend: ASR 後端引擎
   profile: 延遲
@@ -39,6 +41,7 @@ options:
   beamFast: 較快
   beamSlow: 較慢
   noSettingsForBackend: 此後端無可用設定。
+  noTranslation: 無 (停用翻譯)
   vad: 語音活動偵測 (VAD)
   vadThreshold: 靜音閾值
   vadMinSpeech: 最短語音時間

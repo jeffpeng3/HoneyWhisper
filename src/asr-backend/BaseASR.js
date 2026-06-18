@@ -1,4 +1,12 @@
 export class BaseASR {
+  static fromSharedCode(code) {
+    return code;
+  }
+
+  static toSharedCode(internal) {
+    return internal;
+  }
+
   static async preload(onProgress) {
     // optional; subclasses may override
   }

@@ -1,25 +1,23 @@
 import { LANG_TO_ID } from '@jeffpeng3/nemotron-asr-core';
+import { LANGUAGE_LABELS } from './shared';
 
-export interface LangOption {
+export interface AsrLangOption {
     value: string;
     label: string;
 }
 
-export function getNemotronLanguages(): LangOption[] {
-    const seen = new Map<number, { code: string; name: string }>();
-
-    for (const [code, [id, name]] of Object.entries(LANG_TO_ID)) {
+export function getAsrLanguages(): AsrLangOption[] {
+    const seen = new Map<number, string>();
+    for (const [code, [id]] of Object.entries(LANG_TO_ID)) {
         if (id === 101) continue;
         const existing = seen.get(id);
         if (!existing || code.length < existing.code.length) {
-            seen.set(id, { code, name });
+            seen.set(id, code);
         }
     }
-
     const langs = [...seen.values()]
-        .map((l) => ({ value: l.code, label: l.name }))
+        .map((code) => ({ value: code, label: LANGUAGE_LABELS[code] ?? code }))
         .sort((a, b) => a.label.localeCompare(b.label));
-
     langs.push({ value: 'auto', label: 'Auto-detect' });
     return langs;
 }

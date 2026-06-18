@@ -8,7 +8,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Progress } from "$lib/components/ui/progress/index.js";
-  import { Settings, Mic, MicOff, LoaderCircle, Download } from "lucide-svelte";
+  import { Settings, MicOff, LoaderCircle, Download, Play } from "lucide-svelte";
 
   let isRecording = false;
   let isLoading = false;
@@ -16,6 +16,7 @@
   let isDownloading = false;
   let initProgress = 0;
   let initText = "";
+  let stuck = false;
 
   let activeTabTitle = i18n.t("popup.tabNameFallback");
   let cleanupListeners = [];
@@ -28,22 +29,27 @@
       console.warn('Popup: failed to get tab info', e);
     }
 
+    let notReady = false;
     try {
       const state = await sendMessage('GET_STATE', undefined);
-      if (state.isRecording) {
-        isRecording = true;
-      }
+      if (state.isRecording) isRecording = true;
       if (state.modelReady) {
         modelReady = true;
       } else {
-        isDownloading = true;
+        notReady = true;
         sendMessage('INIT_MODEL', undefined).catch(() => {});
       }
     } catch (e) {
-      console.warn('Popup: background not ready yet, retrying', e);
-      isDownloading = true;
+      console.warn('Popup: background not ready, sending INIT_MODEL', e);
+      notReady = true;
       sendMessage('INIT_MODEL', undefined).catch(() => {});
     }
+
+    setTimeout(() => {
+      if (notReady && !modelReady && !isDownloading) {
+        stuck = true;
+      }
+    }, 8000);
 
     const unsub1 = onMessage('RECORDING_STARTED', () => {
       isRecording = true;
@@ -59,6 +65,7 @@
         return;
       }
       isDownloading = true;
+      stuck = false;
       initProgress = data.progress || 0;
       initText = data.file || "";
     });
@@ -66,6 +73,7 @@
     const unsub3 = onMessage('MODEL_READY', () => {
       isDownloading = false;
       modelReady = true;
+      stuck = false;
     });
 
     cleanupListeners = [unsub1, unsub2, unsub3];
@@ -108,7 +116,11 @@
     </Badge>
   </div>
 
-  {#if isDownloading}
+  {#if stuck}
+    <div class="space-y-2">
+      <p class="text-xs text-destructive">{i18n.t("popup.stuckError")}</p>
+    </div>
+  {:else if isDownloading}
     <div class="space-y-2">
       <div class="flex items-center gap-2 text-sm text-muted-foreground">
         <Download class="w-4 h-4" />
@@ -135,7 +147,7 @@
       {:else if isRecording}
         <MicOff class="w-4 h-4 mr-2" />
       {:else}
-        <Mic class="w-4 h-4 mr-2" />
+        <Play class="w-4 h-4 mr-2" />
       {/if}
       {isRecording ? i18n.t("popup.stop") : i18n.t("popup.start")}
     </Button>

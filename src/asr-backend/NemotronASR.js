@@ -1,7 +1,20 @@
-import { AsrEngine } from '@jeffpeng3/nemotron-asr-core';
+import { AsrEngine, LANG_TO_ID } from '@jeffpeng3/nemotron-asr-core';
 import { BaseASR } from './BaseASR.js';
 
 export class NemotronASR extends BaseASR {
+  static fromSharedCode(code) {
+    if (code === 'auto') return 101;
+    const entry = LANG_TO_ID[code];
+    return entry ? entry[0] : 101;
+  }
+
+  static toSharedCode(langId) {
+    for (const [code, [id]] of Object.entries(LANG_TO_ID)) {
+      if (id === langId) return code;
+    }
+    return null;
+  }
+
   static async preload(onProgress) {
     return AsrEngine.preload(onProgress);
   }
