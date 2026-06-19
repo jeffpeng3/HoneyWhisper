@@ -1,11 +1,12 @@
 import { onMessage, sendMessage } from "$lib/messaging";
-import { updatePipelineConfig } from "@/pipeline/PipelineConfig.ts";
+import { updatePipelineConfig, pipelineConfig } from "@/pipeline/PipelineConfig.ts";
 import { pipelineController } from "@/pipeline/PipelineController.js";
 import { audioRecorder } from "@/pipeline/AudioRecorder.js";
 import { AsrEngine } from '@jeffpeng3/nemotron-asr-core';
+import { getLocalSettings } from "$lib/local-settings";
 
 
-console.log("HoneyWhisper Offscreen Script Loaded (Nemotron)");
+console.log("HoneyWhisper Offscreen Script Loaded");
 
 pipelineController.preload().catch((err) => {
     console.error('Auto-preload failed:', err);
@@ -13,7 +14,14 @@ pipelineController.preload().catch((err) => {
 
 onMessage('START_RECORDING', async (message) => {
     const settings = message.data.pipelineConfig || {};
+    const local = await getLocalSettings();
+    settings.geminiApiKey = local.geminiApiKey;
+    const prevEngine = pipelineConfig.asr.engine;
     updatePipelineConfig(settings);
+    if (settings.asrBackend && settings.asrBackend !== prevEngine) {
+        await pipelineController.setEngine(settings.asrBackend);
+        await pipelineController.preload();
+    }
     pipelineController.syncTranslator();
     await audioRecorder.startRecording(message.data.streamId);
 });
@@ -49,7 +57,14 @@ onMessage('BENCHMARK_ASR', async (message) => {
 
 onMessage('UPDATE_SETTINGS', async (message) => {
     const settings = message.data || {};
+    const local = await getLocalSettings();
+    if (local.geminiApiKey) settings.geminiApiKey = local.geminiApiKey;
+    const prevEngine = pipelineConfig.asr.engine;
     updatePipelineConfig(settings);
+    if (settings.asrBackend && settings.asrBackend !== prevEngine) {
+        await pipelineController.setEngine(settings.asrBackend);
+        await pipelineController.preload();
+    }
     pipelineController.syncTranslator();
 });
 

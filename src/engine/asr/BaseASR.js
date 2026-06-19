@@ -11,6 +11,10 @@ export class BaseASR {
     return 'auto';
   }
 
+  get providesTranslation() {
+    return false;
+  }
+
   async init(options) {
     throw new Error('Not implemented');
   }

@@ -3,11 +3,12 @@
     import Combobox from "$lib/components/ui/combobox/Combobox.svelte";
     import * as Card from "$lib/components/ui/card/index.js";
     import NemotronSettings from "./NemotronSettings.svelte";
+    import GeminiSettings from "./GeminiSettings.svelte";
     import { i18n } from "#i18n";
 
     let {
         asrBackend = $bindable("nemotron"),
-        language = $bindable("ja"),
+        nemotronLanguage = $bindable("ja"),
         nemotronProfile = $bindable("NORMAL"),
         beamWidth = $bindable(1),
         vadEnabled = $bindable(false),
@@ -15,10 +16,12 @@
         vadMinSpeech = $bindable(0.25),
         vadMinSilence = $bindable(0.4),
         vadHold = $bindable(0.15),
+        geminiLanguage = $bindable("auto"),
+        geminiApiKey = $bindable(""),
         onSave = () => {},
     }: {
         asrBackend: string;
-        language: string;
+        nemotronLanguage: string;
         nemotronProfile: string;
         beamWidth: number;
         vadEnabled: boolean;
@@ -26,11 +29,14 @@
         vadMinSpeech: number;
         vadMinSilence: number;
         vadHold: number;
+        geminiLanguage: string;
+        geminiApiKey: string;
         onSave: () => void;
     } = $props();
 
     const BACKENDS = [
         { value: "nemotron", label: "Nemotron 3.5 (local)" },
+        { value: "gemini", label: "Gemini 3.5 Live Translate" },
     ];
 </script>
 
@@ -57,12 +63,18 @@
                 <NemotronSettings
                     bind:profile={nemotronProfile}
                     bind:beamWidth
-                    bind:language
+                    bind:language={nemotronLanguage}
                     bind:vadEnabled
                     bind:vadThreshold
                     bind:vadMinSpeech
                     bind:vadMinSilence
                     bind:vadHold
+                    {onSave}
+                />
+            {:else if asrBackend === "gemini"}
+                <GeminiSettings
+                    bind:apiKey={geminiApiKey}
+                    bind:language={geminiLanguage}
                     {onSave}
                 />
             {:else}

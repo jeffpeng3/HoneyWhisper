@@ -22,6 +22,10 @@ export class NemotronASR extends BaseASR {
     return this._currentLang ?? 'auto';
   }
 
+  get providesTranslation() {
+    return false;
+  }
+
   get ready() {
     return this.engine?.ready ?? false;
   }

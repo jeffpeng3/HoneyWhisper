@@ -5,24 +5,53 @@
     import * as Card from "$lib/components/ui/card/index.js";
     import { i18n } from "#i18n";
     import { TRANSLATION_LANGUAGES } from "$lib/languages/translation";
+    import { createASR } from "@/engine/asr/index.js";
 
     let {
         service = $bindable("none"),
         targetLanguage = $bindable("zh-TW"),
         showOriginal = $bindable(true),
+        asrBackend = $bindable("nemotron"),
         onSave = () => {},
     }: {
         service: string;
         targetLanguage: string;
         showOriginal: boolean;
+        asrBackend: string;
         onSave: () => void;
     } = $props();
 
-    const SERVICES = [
+    let SERVICES = $state([
         { value: "none", label: i18n.t("options.noTranslation") },
         { value: "google", label: "Google Translate" },
         { value: "deepl", label: "DeepL" },
-    ];
+    ]);
+
+    $effect(() => {
+        try {
+            const asr = createASR(asrBackend);
+            if (asr.providesTranslation) {
+                SERVICES = [
+                    { value: "none", label: i18n.t("options.noTranslation") },
+                    { value: "builtin", label: "Built-in (Gemini)" },
+                    { value: "google", label: "Google Translate" },
+                    { value: "deepl", label: "DeepL" },
+                ];
+            } else {
+                SERVICES = [
+                    { value: "none", label: i18n.t("options.noTranslation") },
+                    { value: "google", label: "Google Translate" },
+                    { value: "deepl", label: "DeepL" },
+                ];
+            }
+        } catch {
+            SERVICES = [
+                { value: "none", label: i18n.t("options.noTranslation") },
+                { value: "google", label: "Google Translate" },
+                { value: "deepl", label: "DeepL" },
+            ];
+        }
+    });
 
 
 </script>

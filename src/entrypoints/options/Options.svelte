@@ -3,6 +3,7 @@
   import { browser } from "wxt/browser";
   import { sendMessage } from "$lib/messaging";
   import { getSettings, extensionStorage } from "$lib/settings";
+  import { getLocalSettings, localStorage } from "$lib/local-settings";
 
   import SettingsTab from "./SettingsTab.svelte";
   import AsrTab from "$lib/components/settings/AsrTab.svelte";
@@ -15,7 +16,6 @@
 
   let activeTab = "general";
 
-  let language = "ja";
   let historyLines = 1;
   let fontSize = 24;
   let translationService = "none";
@@ -23,6 +23,7 @@
   let showOriginal = true;
 
   let asrBackend = "nemotron";
+  let nemotronLanguage = "ja";
   let nemotronProfile = "NORMAL";
   let beamWidth = 1;
   let vadEnabled = false;
@@ -30,6 +31,8 @@
   let vadMinSpeech = 0.25;
   let vadMinSilence = 0.4;
   let vadHold = 0.15;
+  let geminiLanguage = "auto";
+  let geminiApiKey = "";
 
   let installedModels = [];
   let statusMessage = "";
@@ -45,7 +48,7 @@
   async function loadSettings() {
     const items = await getSettings();
     asrBackend = items.asrBackend || "nemotron";
-    language = items.language;
+    nemotronLanguage = items.nemotronLanguage;
     nemotronProfile = items.nemotronProfile || "NORMAL";
     beamWidth = items.beamWidth || 1;
     vadEnabled = items.vadEnabled ?? false;
@@ -53,17 +56,20 @@
     vadMinSpeech = items.vadMinSpeech ?? 0.25;
     vadMinSilence = items.vadMinSilence ?? 0.4;
     vadHold = items.vadHold ?? 0.15;
+    geminiLanguage = items.geminiLanguage || "auto";
     fontSize = parseInt(items.fontSize);
     historyLines = parseInt(items.historyLines);
     translationService = items.translationService || "none";
     targetLanguage = items.targetLanguage;
     showOriginal = items.showOriginal !== undefined ? items.showOriginal : true;
+    const localItems = await getLocalSettings();
+    geminiApiKey = localItems.geminiApiKey;
   }
 
   async function saveSettings() {
     await Promise.all([
       extensionStorage.setItem("asrBackend", asrBackend),
-      extensionStorage.setItem("language", language),
+      extensionStorage.setItem("nemotronLanguage", nemotronLanguage),
       extensionStorage.setItem("nemotronProfile", nemotronProfile),
       extensionStorage.setItem("beamWidth", beamWidth),
       extensionStorage.setItem("vadEnabled", vadEnabled),
@@ -71,11 +77,13 @@
       extensionStorage.setItem("vadMinSpeech", vadMinSpeech),
       extensionStorage.setItem("vadMinSilence", vadMinSilence),
       extensionStorage.setItem("vadHold", vadHold),
+      extensionStorage.setItem("geminiLanguage", geminiLanguage),
       extensionStorage.setItem("fontSize", String(fontSize)),
       extensionStorage.setItem("historyLines", historyLines),
       extensionStorage.setItem("translationService", translationService),
       extensionStorage.setItem("targetLanguage", targetLanguage),
       extensionStorage.setItem("showOriginal", showOriginal),
+      localStorage.setItem("geminiApiKey", geminiApiKey),
     ]);
 
     showStatus(i18n.t("messages.settingsSaved"));
@@ -84,9 +92,9 @@
       settings: {
         translationService,
         targetLanguage,
-        language,
         showOriginal,
         asrBackend,
+        nemotronLanguage,
         nemotronProfile,
         beamWidth,
         vadEnabled,
@@ -94,6 +102,8 @@
         vadMinSpeech,
         vadMinSilence,
         vadHold,
+        geminiLanguage,
+        geminiApiKey,
       },
     }).catch(() => {});
 
@@ -238,12 +248,13 @@
       bind:service={translationService}
       bind:targetLanguage
       bind:showOriginal
+      bind:asrBackend
       onSave={saveSettings}
     />
   {:else}
     <AsrTab
       bind:asrBackend
-      bind:language
+      bind:nemotronLanguage
       bind:nemotronProfile
       bind:beamWidth
       bind:vadEnabled
@@ -251,6 +262,8 @@
       bind:vadMinSpeech
       bind:vadMinSilence
       bind:vadHold
+      bind:geminiLanguage
+      bind:geminiApiKey
       onSave={saveSettings}
     />
   {/if}

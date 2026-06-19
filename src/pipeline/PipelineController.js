@@ -49,8 +49,13 @@ export class PipelineController {
         return this.asr?.ready ?? false;
     }
 
-    async preload() {
-        this.asr = createASR('nemotron');
+    async setEngine(engine) {
+        if (this.asr) await this.asr.release();
+        this.asr = createASR(engine || 'nemotron');
+    }
+
+    async preload(engine) {
+        this.asr = createASR(engine || pipelineConfig.asr.engine);
         this.segmenter = new Segmenter({ timeoutMs: 500 });
         this.segmenter.onTimeout = (text) => this._emitFinal(text);
 
@@ -74,17 +79,23 @@ export class PipelineController {
         };
 
         const vad = pipelineConfig.asr.vad;
-        await this.asr.init({
-            profile: pipelineConfig.asr.profile,
-            beamWidth: pipelineConfig.asr.beamWidth,
-            vad: vad.enabled ? {
+        const initOptions = { callbacks: { partial: partialCb } };
+
+        if (this.asr.providesTranslation) {
+            initOptions.apiKey = pipelineConfig.asr.apiKey ?? '';
+            initOptions.language = langId || pipelineConfig.asr.language;
+        } else {
+            initOptions.profile = pipelineConfig.asr.profile;
+            initOptions.beamWidth = pipelineConfig.asr.beamWidth;
+            initOptions.vad = vad.enabled ? {
                 threshold: vad.threshold,
                 minSpeech: vad.minSpeech,
                 minSilence: vad.minSilence,
                 hold: vad.hold,
-            } : false,
-            callbacks: { partial: partialCb },
-        });
+            } : false;
+        }
+
+        await this.asr.init(initOptions);
 
         this.session = this.asr.createSession(
             langId || pipelineConfig.asr.language,
@@ -107,14 +118,15 @@ export class PipelineController {
         if (results && results.length) {
             for (const result of results) {
                 if (!result.text) continue;
+                const preTranslated = result.translatedText || null;
                 const sentences = this.segmenter.feed(result.text);
                 for (const sentence of sentences) {
-                    await this._emitFinal(sentence);
+                    await this._emitFinal(sentence, preTranslated);
                 }
             }
             const partial = this.segmenter.partial;
             if (partial) {
-                await this._emitPartial(partial);
+                await this._emitPartial(partial, null);
             }
         }
     }
@@ -137,8 +149,8 @@ export class PipelineController {
         this.smoothGain = 1;
     }
 
-    async _emitFinal(text) {
-        const translated = await this._translate(text);
+    async _emitFinal(text, preTranslated = null) {
+        const translated = await this._translate(text, preTranslated);
         let displayText = text;
         let translatedText = null;
         if (translated && pipelineConfig.translation.showOriginal === false) {
@@ -149,9 +161,9 @@ export class PipelineController {
         sendMessage('RESULT', { text: displayText, translatedText, isFinal: true }).catch(() => {});
     }
 
-    async _emitPartial(text) {
+    async _emitPartial(text, preTranslated = null) {
         const translated = this.translator?.supportsPreview
-            ? await this._translate(text)
+            ? await this._translate(text, preTranslated)
             : null;
         let displayText = text;
         let translatedText = null;
@@ -168,10 +180,10 @@ export class PipelineController {
         this.translator = service !== 'none' ? BaseTranslator.create(service) : null;
     }
 
-    async _translate(text) {
+    async _translate(text, preTranslated = null) {
         if (!this.translator || !text) return null;
         try {
-            return await this.translator.translate(text, this.asr.detectedLanguage, pipelineConfig.translation.target);
+            return await this.translator.translate(text, this.asr.detectedLanguage, pipelineConfig.translation.target, preTranslated);
         } catch (err) {
             console.warn('Translation failed:', err);
             return null;

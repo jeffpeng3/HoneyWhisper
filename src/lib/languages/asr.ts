@@ -6,7 +6,14 @@ export interface AsrLangOption {
     label: string;
 }
 
-export function getAsrLanguages(): AsrLangOption[] {
+export function getAsrLanguages(engine?: string): AsrLangOption[] {
+    if (engine === 'gemini') {
+        const langs = Object.entries(LANGUAGE_LABELS)
+            .map(([value, label]) => ({ value, label }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+        langs.unshift({ value: 'auto', label: 'Auto-detect' });
+        return langs;
+    }
     const seen = new Map<number, string>();
     for (const [code, [id]] of Object.entries(LANG_TO_ID)) {
         if (id === 101) continue;

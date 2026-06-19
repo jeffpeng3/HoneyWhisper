@@ -41,9 +41,10 @@ export class BaseTranslator {
      * @param {string} text 
      * @param {string} sourceLang 
      * @param {string} targetLang 
+     * @param {string|null} preTranslated - pre-translated text from ASR engine
      * @returns {Promise<string>}
      */
-    async translate(text, sourceLang, targetLang) {
-        return text;
+    async translate(text, sourceLang, targetLang, preTranslated = null) {
+        return preTranslated ?? text;
     }
 }

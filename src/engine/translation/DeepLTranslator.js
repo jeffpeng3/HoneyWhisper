@@ -48,7 +48,7 @@ export class DeepLTranslator extends BaseTranslator {
         return code.toUpperCase().split('-')[0];
     }
 
-    async translate(text, sourceLang, targetLang) {
+    async translate(text, sourceLang, targetLang, preTranslated = null) {
         if (!text) return "";
 
         try {

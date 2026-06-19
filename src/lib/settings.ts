@@ -2,7 +2,7 @@ import { defineExtensionStorage } from '@webext-core/storage';
 
 export interface ExtensionSettings {
     asrBackend: string;
-    language: string;
+    nemotronLanguage: string;
     nemotronProfile: string;
     beamWidth: number;
     vadEnabled: boolean;
@@ -10,6 +10,7 @@ export interface ExtensionSettings {
     vadMinSpeech: number;
     vadMinSilence: number;
     vadHold: number;
+    geminiLanguage: string;
     fontSize: string;
     historyLines: number;
     translationService: string;
@@ -21,7 +22,7 @@ export const extensionStorage = defineExtensionStorage<ExtensionSettings>(browse
 
 export const defaultSettings: ExtensionSettings = {
     asrBackend: "nemotron",
-    language: "ja",
+    nemotronLanguage: "ja",
     nemotronProfile: "NORMAL",
     beamWidth: 1,
     vadEnabled: false,
@@ -29,6 +30,7 @@ export const defaultSettings: ExtensionSettings = {
     vadMinSpeech: 0.25,
     vadMinSilence: 0.4,
     vadHold: 0.15,
+    geminiLanguage: "auto",
     fontSize: "24",
     historyLines: 1,
     translationService: "none",
@@ -38,7 +40,7 @@ export const defaultSettings: ExtensionSettings = {
 
 export async function getSettings(): Promise<ExtensionSettings> {
     const asrBackend = await extensionStorage.getItem('asrBackend') ?? defaultSettings.asrBackend;
-    const language = await extensionStorage.getItem('language') ?? defaultSettings.language;
+    const nemotronLanguage = await extensionStorage.getItem('nemotronLanguage') ?? defaultSettings.nemotronLanguage;
     const nemotronProfile = await extensionStorage.getItem('nemotronProfile') ?? defaultSettings.nemotronProfile;
     const beamWidth = await extensionStorage.getItem('beamWidth') ?? defaultSettings.beamWidth;
     const vadEnabled = await extensionStorage.getItem('vadEnabled') ?? defaultSettings.vadEnabled;
@@ -46,6 +48,7 @@ export async function getSettings(): Promise<ExtensionSettings> {
     const vadMinSpeech = await extensionStorage.getItem('vadMinSpeech') ?? defaultSettings.vadMinSpeech;
     const vadMinSilence = await extensionStorage.getItem('vadMinSilence') ?? defaultSettings.vadMinSilence;
     const vadHold = await extensionStorage.getItem('vadHold') ?? defaultSettings.vadHold;
+    const geminiLanguage = await extensionStorage.getItem('geminiLanguage') ?? defaultSettings.geminiLanguage;
     const fontSize = await extensionStorage.getItem('fontSize') ?? defaultSettings.fontSize;
     const historyLines = await extensionStorage.getItem('historyLines') ?? defaultSettings.historyLines;
     const translationService = await extensionStorage.getItem('translationService') ?? defaultSettings.translationService;
@@ -54,7 +57,7 @@ export async function getSettings(): Promise<ExtensionSettings> {
 
     return {
         asrBackend,
-        language,
+        nemotronLanguage,
         nemotronProfile,
         beamWidth,
         vadEnabled,
@@ -62,6 +65,7 @@ export async function getSettings(): Promise<ExtensionSettings> {
         vadMinSpeech,
         vadMinSilence,
         vadHold,
+        geminiLanguage,
         fontSize,
         historyLines,
         translationService,

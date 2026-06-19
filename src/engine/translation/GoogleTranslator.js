@@ -7,7 +7,7 @@ export class GoogleTranslator extends BaseTranslator {
         this.baseDelay = 100;
     }
 
-    async translate(text, sourceLang, targetLang) {
+    async translate(text, sourceLang, targetLang, preTranslated = null) {
         if (!text) return "";
 
         const sl = this.constructor.toEngineCode(sourceLang);
