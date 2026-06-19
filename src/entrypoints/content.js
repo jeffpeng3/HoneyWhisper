@@ -1,5 +1,5 @@
 import { onMessage } from '$lib/messaging';
-import { getSettings } from '$lib/settings';
+import { uiConfig } from '$lib/settings/index.ts';
 import { i18n } from '#i18n';
 
 export default defineContentScript({
@@ -9,12 +9,14 @@ export default defineContentScript({
         if (window.honeyWhisperInitialized) return;
         window.honeyWhisperInitialized = true;
 
+        await uiConfig.load();
+
         let overlayEl = null;
         let historyEl = null;
         let currentEl = null;
 
         let historyBuffer = [];
-        let maxHistoryLines = 1;
+        let maxHistoryLines = parseInt(uiConfig.historyLines) || 1;
 
         async function createOverlay() {
             if (overlayEl) return;
@@ -30,7 +32,7 @@ export default defineContentScript({
                 color: 'white',
                 padding: '10px 20px',
                 borderRadius: '8px',
-                fontSize: '24px',
+                fontSize: `${uiConfig.fontSize}px`,
                 lineHeight: '1.4',
                 zIndex: '999999',
                 pointerEvents: 'auto',
@@ -52,11 +54,6 @@ export default defineContentScript({
             currentEl = document.getElementById('whisper-current');
 
             makeDraggable(overlayEl);
-
-            const settings = await getSettings();
-            if (settings.fontSize) {
-                overlayEl.style.fontSize = `${settings.fontSize}px`;
-            }
         }
 
         function makeDraggable(element) {
@@ -176,13 +173,19 @@ export default defineContentScript({
             }
         }
 
+        uiConfig.onChange(() => {
+            if (overlayEl) {
+                overlayEl.style.fontSize = `${uiConfig.fontSize}px`;
+            }
+            maxHistoryLines = parseInt(uiConfig.historyLines) || 1;
+            while (historyBuffer.length > maxHistoryLines) {
+                historyBuffer.shift();
+            }
+            updateHistoryDisplay();
+        });
+
         onMessage('RESULT', handleResult);
         onMessage('UPDATE_SETTINGS', handleUpdateSettings);
         onMessage('REMOVE_OVERLAY', handleRemoveOverlay);
-
-        const initialSettings = await getSettings();
-        if (initialSettings.historyLines !== undefined) {
-            maxHistoryLines = parseInt(initialSettings.historyLines);
-        }
     }
 });

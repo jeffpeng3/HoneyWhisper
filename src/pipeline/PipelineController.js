@@ -1,6 +1,6 @@
 import { BaseTranslator } from "../engine/translation/index.js";
 import { sendMessage } from "$lib/messaging";
-import { pipelineConfig } from "./PipelineConfig.ts";
+import { asrConfig, translationConfig, secretsConfig } from "$lib/settings/index.ts";
 import { Segmenter } from "./Segmenter.js";
 import { createASR } from "../engine/asr/index.js";
 
@@ -55,7 +55,7 @@ export class PipelineController {
     }
 
     async preload(engine) {
-        this.asr = createASR(engine || pipelineConfig.asr.engine);
+        this.asr = createASR(engine || asrConfig.engine);
         this.segmenter = new Segmenter({ timeoutMs: 500 });
         this.segmenter.onTimeout = (text) => this._emitFinal(text);
 
@@ -78,27 +78,29 @@ export class PipelineController {
             console.log('[ASR partial]', text, lang, progress);
         };
 
-        const vad = pipelineConfig.asr.vad;
+        const lang = langId || (asrConfig.engine === 'gemini' ? asrConfig.gemini.language : asrConfig.nemotron.language);
         const initOptions = { callbacks: { partial: partialCb } };
 
-        if (this.asr.providesTranslation) {
-            initOptions.apiKey = pipelineConfig.asr.apiKey ?? '';
-            initOptions.language = langId || pipelineConfig.asr.language;
+        if (asrConfig.engine === 'gemini') {
+            initOptions.apiKey = secretsConfig.geminiApiKey;
+            initOptions.language = lang;
         } else {
-            initOptions.profile = pipelineConfig.asr.profile;
-            initOptions.beamWidth = pipelineConfig.asr.beamWidth;
-            initOptions.vad = vad.enabled ? {
-                threshold: vad.threshold,
-                minSpeech: vad.minSpeech,
-                minSilence: vad.minSilence,
-                hold: vad.hold,
+            const nem = asrConfig.nemotron;
+            initOptions.profile = nem.profile;
+            initOptions.beamWidth = nem.beamWidth;
+            initOptions.vad = nem.vad.enabled ? {
+                threshold: nem.vad.threshold,
+                minSpeech: nem.vad.minSpeech,
+                minSilence: nem.vad.minSilence,
+                hold: nem.vad.hold,
             } : false;
         }
 
         await this.asr.init(initOptions);
 
+        const vad = asrConfig.nemotron.vad;
         this.session = this.asr.createSession(
-            langId || pipelineConfig.asr.language,
+            lang,
             vad.enabled ? {
                 threshold: vad.threshold,
                 minSpeech: vad.minSpeech,
@@ -153,7 +155,7 @@ export class PipelineController {
         const translated = await this._translate(text, preTranslated);
         let displayText = text;
         let translatedText = null;
-        if (translated && pipelineConfig.translation.showOriginal === false) {
+        if (translated && translationConfig.showOriginal === false) {
             displayText = translated;
         } else if (translated) {
             translatedText = translated;
@@ -167,7 +169,7 @@ export class PipelineController {
             : null;
         let displayText = text;
         let translatedText = null;
-        if (translated && pipelineConfig.translation.showOriginal === false) {
+        if (translated && translationConfig.showOriginal === false) {
             displayText = translated;
         } else if (translated) {
             translatedText = translated;
@@ -176,14 +178,14 @@ export class PipelineController {
     }
 
     syncTranslator() {
-        const service = pipelineConfig.translation.service;
+        const service = translationConfig.service;
         this.translator = service !== 'none' ? BaseTranslator.create(service) : null;
     }
 
     async _translate(text, preTranslated = null) {
         if (!this.translator || !text) return null;
         try {
-            return await this.translator.translate(text, this.asr.detectedLanguage, pipelineConfig.translation.target, preTranslated);
+            return await this.translator.translate(text, this.asr.detectedLanguage, translationConfig.target, preTranslated);
         } catch (err) {
             console.warn('Translation failed:', err);
             return null;

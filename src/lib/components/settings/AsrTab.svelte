@@ -5,34 +5,13 @@
     import NemotronSettings from "./NemotronSettings.svelte";
     import GeminiSettings from "./GeminiSettings.svelte";
     import { i18n } from "#i18n";
+    import { asrConfig } from "$lib/settings/index.ts";
 
-    let {
-        asrBackend = $bindable("nemotron"),
-        nemotronLanguage = $bindable("ja"),
-        nemotronProfile = $bindable("NORMAL"),
-        beamWidth = $bindable(1),
-        vadEnabled = $bindable(false),
-        vadThreshold = $bindable(0.01),
-        vadMinSpeech = $bindable(0.25),
-        vadMinSilence = $bindable(0.4),
-        vadHold = $bindable(0.15),
-        geminiLanguage = $bindable("auto"),
-        geminiApiKey = $bindable(""),
-        onSave = () => {},
-    }: {
-        asrBackend: string;
-        nemotronLanguage: string;
-        nemotronProfile: string;
-        beamWidth: number;
-        vadEnabled: boolean;
-        vadThreshold: number;
-        vadMinSpeech: number;
-        vadMinSilence: number;
-        vadHold: number;
-        geminiLanguage: string;
-        geminiApiKey: string;
-        onSave: () => void;
-    } = $props();
+    let _rev = $state(0);
+    $effect(() => {
+        const unsub = asrConfig.onChange(() => _rev++);
+        return unsub;
+    });
 
     const BACKENDS = [
         { value: "nemotron", label: "Nemotron 3.5 (local)" },
@@ -48,35 +27,18 @@
         <div class="grid gap-2">
             <Label>{i18n.t("options.asrBackend")}</Label>
             <Combobox
-                value={asrBackend}
-                options={BACKENDS.map((b) => ({ value: b.value, label: b.label }))}
-                onSelect={(v: string) => {
-                    asrBackend = v;
-                    onSave();
-                }}
+                value={asrConfig.engine}
+                options={(_rev, BACKENDS.map((b) => ({ value: b.value, label: b.label })))}
+                onSelect={(v: string) => { asrConfig.engine = v; }}
                 class="w-full"
             />
         </div>
 
         <div class="border rounded-lg p-4">
-            {#if asrBackend === "nemotron"}
-                <NemotronSettings
-                    bind:profile={nemotronProfile}
-                    bind:beamWidth
-                    bind:language={nemotronLanguage}
-                    bind:vadEnabled
-                    bind:vadThreshold
-                    bind:vadMinSpeech
-                    bind:vadMinSilence
-                    bind:vadHold
-                    {onSave}
-                />
-            {:else if asrBackend === "gemini"}
-                <GeminiSettings
-                    bind:apiKey={geminiApiKey}
-                    bind:language={geminiLanguage}
-                    {onSave}
-                />
+            {#if asrConfig.engine === "nemotron"}
+                <NemotronSettings {_rev} />
+            {:else if asrConfig.engine === "gemini"}
+                <GeminiSettings {_rev} />
             {:else}
                 <p class="text-sm text-muted-foreground">
                     {i18n.t("options.noSettingsForBackend")}

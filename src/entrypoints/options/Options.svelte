@@ -2,8 +2,8 @@
   import { onMount } from "svelte";
   import { browser } from "wxt/browser";
   import { sendMessage } from "$lib/messaging";
-  import { getSettings, extensionStorage } from "$lib/settings";
-  import { getLocalSettings, localStorage } from "$lib/local-settings";
+
+  import { asrConfig, translationConfig, uiConfig, secretsConfig } from "$lib/settings/index.ts";
 
   import SettingsTab from "./SettingsTab.svelte";
   import AsrTab from "$lib/components/settings/AsrTab.svelte";
@@ -14,105 +14,38 @@
   import { checkUpdate } from "$lib/version.js";
   import { i18n } from "#i18n";
 
-  let activeTab = "general";
+  let activeTab = $state("general");
 
-  let historyLines = 1;
-  let fontSize = 24;
-  let translationService = "none";
-  let targetLanguage = "zh-TW";
-  let showOriginal = true;
+  let installedModels = $state([]);
+  let statusMessage = $state("");
 
-  let asrBackend = "nemotron";
-  let nemotronLanguage = "ja";
-  let nemotronProfile = "NORMAL";
-  let beamWidth = 1;
-  let vadEnabled = false;
-  let vadThreshold = 0.01;
-  let vadMinSpeech = 0.25;
-  let vadMinSilence = 0.4;
-  let vadHold = 0.15;
-  let geminiLanguage = "auto";
-  let geminiApiKey = "";
+  let updateStatus = $state("idle");
+  let updateData = $state(null);
 
-  let installedModels = [];
-  let statusMessage = "";
-
-  let updateStatus = "idle";
-  let updateData = null;
+  let _rev = $state(0);
 
   onMount(async () => {
-    await loadSettings();
+    await Promise.all([
+      asrConfig.load(),
+      translationConfig.load(),
+      uiConfig.load(),
+      secretsConfig.load(),
+    ]);
+    asrConfig.onChange(() => _rev++);
+    translationConfig.onChange(() => _rev++);
+    uiConfig.onChange(() => _rev++);
+    secretsConfig.onChange(() => _rev++);
+    _rev++; // force re-render after load to reflect stored values
     await handleCheckUpdate();
   });
 
-  async function loadSettings() {
-    const items = await getSettings();
-    asrBackend = items.asrBackend || "nemotron";
-    nemotronLanguage = items.nemotronLanguage;
-    nemotronProfile = items.nemotronProfile || "NORMAL";
-    beamWidth = items.beamWidth || 1;
-    vadEnabled = items.vadEnabled ?? false;
-    vadThreshold = items.vadThreshold ?? 0.01;
-    vadMinSpeech = items.vadMinSpeech ?? 0.25;
-    vadMinSilence = items.vadMinSilence ?? 0.4;
-    vadHold = items.vadHold ?? 0.15;
-    geminiLanguage = items.geminiLanguage || "auto";
-    fontSize = parseInt(items.fontSize);
-    historyLines = parseInt(items.historyLines);
-    translationService = items.translationService || "none";
-    targetLanguage = items.targetLanguage;
-    showOriginal = items.showOriginal !== undefined ? items.showOriginal : true;
-    const localItems = await getLocalSettings();
-    geminiApiKey = localItems.geminiApiKey;
-  }
-
-  async function saveSettings() {
-    await Promise.all([
-      extensionStorage.setItem("asrBackend", asrBackend),
-      extensionStorage.setItem("nemotronLanguage", nemotronLanguage),
-      extensionStorage.setItem("nemotronProfile", nemotronProfile),
-      extensionStorage.setItem("beamWidth", beamWidth),
-      extensionStorage.setItem("vadEnabled", vadEnabled),
-      extensionStorage.setItem("vadThreshold", vadThreshold),
-      extensionStorage.setItem("vadMinSpeech", vadMinSpeech),
-      extensionStorage.setItem("vadMinSilence", vadMinSilence),
-      extensionStorage.setItem("vadHold", vadHold),
-      extensionStorage.setItem("geminiLanguage", geminiLanguage),
-      extensionStorage.setItem("fontSize", String(fontSize)),
-      extensionStorage.setItem("historyLines", historyLines),
-      extensionStorage.setItem("translationService", translationService),
-      extensionStorage.setItem("targetLanguage", targetLanguage),
-      extensionStorage.setItem("showOriginal", showOriginal),
-      localStorage.setItem("geminiApiKey", geminiApiKey),
-    ]);
-
-    showStatus(i18n.t("messages.settingsSaved"));
-
-    sendMessage("UPDATE_SETTINGS", {
-      settings: {
-        translationService,
-        targetLanguage,
-        showOriginal,
-        asrBackend,
-        nemotronLanguage,
-        nemotronProfile,
-        beamWidth,
-        vadEnabled,
-        vadThreshold,
-        vadMinSpeech,
-        vadMinSilence,
-        vadHold,
-        geminiLanguage,
-        geminiApiKey,
-      },
-    }).catch(() => {});
-
+  async function broadcastUI() {
     try {
       const tabs = await browser.tabs.query({});
       for (const tab of tabs) {
         sendMessage(
           "UPDATE_SETTINGS",
-          { settings: { fontSize: String(fontSize), historyLines } },
+          { settings: { fontSize: String(uiConfig.fontSize), historyLines: uiConfig.historyLines } },
           tab.id,
         ).catch(() => {});
       }
@@ -157,7 +90,6 @@
         const cacheKeys = await caches.keys();
         await Promise.all(cacheKeys.map((key) => caches.delete(key)));
         showStatus(i18n.t("messages.resetSuccess"));
-        await loadSettings();
         installedModels = [];
       } catch (err) {
         alert(i18n.t("messages.resetError") + err.message);
@@ -232,39 +164,19 @@
 
   {#if activeTab === "general"}
     <SettingsTab
-      bind:fontSize
-      bind:historyLines
+      {_rev}
       {installedModels}
       {updateStatus}
       {updateData}
-      onSave={saveSettings}
       onCheckUpdate={handleCheckUpdate}
       onClearCache={clearCache}
       onListModels={listModels}
       onResetAll={resetAllData}
+      onSave={broadcastUI}
     />
   {:else if activeTab === "translation"}
-    <TranslationTab
-      bind:service={translationService}
-      bind:targetLanguage
-      bind:showOriginal
-      bind:asrBackend
-      onSave={saveSettings}
-    />
+    <TranslationTab />
   {:else}
-    <AsrTab
-      bind:asrBackend
-      bind:nemotronLanguage
-      bind:nemotronProfile
-      bind:beamWidth
-      bind:vadEnabled
-      bind:vadThreshold
-      bind:vadMinSpeech
-      bind:vadMinSilence
-      bind:vadHold
-      bind:geminiLanguage
-      bind:geminiApiKey
-      onSave={saveSettings}
-    />
+    <AsrTab />
   {/if}
 </main>

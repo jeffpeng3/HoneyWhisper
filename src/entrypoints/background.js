@@ -1,5 +1,4 @@
 import { sendMessage, onMessage } from '$lib/messaging';
-import { getSettings } from '$lib/settings';
 
 
 export default defineBackground(() => {
@@ -39,11 +38,7 @@ export default defineBackground(() => {
             targetTabId: tabId,
         });
         currentTabId = tabId;
-        const settings = await getSettings();
-        sendMessage('START_RECORDING', {
-            streamId,
-            pipelineConfig: settings,
-        });
+        sendMessage('START_RECORDING', { streamId });
         isRecording = true;
     }
 

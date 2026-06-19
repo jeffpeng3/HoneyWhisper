@@ -6,10 +6,10 @@
     import { Slider } from "$lib/components/ui/slider/index.js";
     import { i18n } from "#i18n";
     import { browser } from "wxt/browser";
+    import { uiConfig } from "$lib/settings/index.ts";
 
     let {
-        fontSize = $bindable(24),
-        historyLines = $bindable(1),
+        _rev = 0,
         installedModels = [],
         updateStatus = "idle",
         updateData = null,
@@ -19,8 +19,7 @@
         onListModels = () => {},
         onResetAll = () => {},
     }: {
-        fontSize: number;
-        historyLines: number;
+        _rev: number;
         installedModels: string[];
         updateStatus: string;
         updateData: { latestVersion?: string; releaseUrl?: string } | null;
@@ -30,8 +29,10 @@
         onListModels: () => void;
         onResetAll: () => void;
     } = $props();
-</script>
 
+    function setFontSize(v: number) { uiConfig.fontSize = v; }
+    function setHistoryLines(v: number) { uiConfig.historyLines = v; }
+</script>
 <Card.Root>
     <Card.Header>
         <Card.Title>{i18n.t("options.title")}</Card.Title>
@@ -43,18 +44,17 @@
                 <div class="flex justify-between">
                     <Label>{i18n.t("options.fontSize")}</Label>
                     <span class="text-sm text-muted-foreground"
-                        >{fontSize}px</span
+                        >{uiConfig.fontSize}px</span
                     >
                 </div>
                 <Slider
                     type="single"
-                    bind:value={fontSize}
+                    value={[uiConfig.fontSize]}
                     min={16}
                     max={48}
                     step={1}
-                    onValueCommit={() => {
-                        onSave();
-                    }}
+                    onValueChange={(v: number[]) => { setFontSize(v[0]); }}
+                    onValueCommit={onSave}
                 />
             </div>
             <div class="grid gap-2">
@@ -66,7 +66,8 @@
                     type="number"
                     min="0"
                     max="5"
-                    bind:value={historyLines}
+                    value={uiConfig.historyLines}
+                    oninput={(e: Event) => { setHistoryLines(parseInt((e.target as HTMLInputElement).value)); }}
                     onchange={onSave}
                 />
             </div>

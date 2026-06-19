@@ -1,27 +1,38 @@
 import { onMessage, sendMessage } from "$lib/messaging";
-import { updatePipelineConfig, pipelineConfig } from "@/pipeline/PipelineConfig.ts";
+import { asrConfig, translationConfig } from "$lib/settings/index.ts";
 import { pipelineController } from "@/pipeline/PipelineController.js";
 import { audioRecorder } from "@/pipeline/AudioRecorder.js";
 import { AsrEngine } from '@jeffpeng3/nemotron-asr-core';
-import { getLocalSettings } from "$lib/local-settings";
 
+async function ensureEngine() {
+    const isGemini = asrConfig.engine === 'gemini';
+    const isGeminiLoaded = pipelineController.asr?.providesTranslation;
+    if (pipelineController.asr && isGemini === isGeminiLoaded) return;
+    await pipelineController.setEngine(asrConfig.engine);
+    await pipelineController.preload();
+}
 
-console.log("HoneyWhisper Offscreen Script Loaded");
+function getBrowserStorage() {
+    var b = globalThis.browser || globalThis.chrome || null;
+    return b && b.storage || null;
+}
 
-pipelineController.preload().catch((err) => {
-    console.error('Auto-preload failed:', err);
-});
+async function init() {
+    await Promise.all([asrConfig.load(), translationConfig.load()]);
+    console.log("HoneyWhisper Offscreen Script Loaded");
+    var storage = getBrowserStorage();
+    if (storage && storage.onChanged) {
+        storage.onChanged.addListener(function(changes, areaName) {
+            if (changes.translation) pipelineController.syncTranslator();
+        });
+    }
+    ensureEngine().catch(function(err) { return console.error('Auto-preload failed:', err); });
+}
+
+init();
 
 onMessage('START_RECORDING', async (message) => {
-    const settings = message.data.pipelineConfig || {};
-    const local = await getLocalSettings();
-    settings.geminiApiKey = local.geminiApiKey;
-    const prevEngine = pipelineConfig.asr.engine;
-    updatePipelineConfig(settings);
-    if (settings.asrBackend && settings.asrBackend !== prevEngine) {
-        await pipelineController.setEngine(settings.asrBackend);
-        await pipelineController.preload();
-    }
+    await ensureEngine();
     pipelineController.syncTranslator();
     await audioRecorder.startRecording(message.data.streamId);
 });
@@ -54,20 +65,3 @@ onMessage('BENCHMARK_ASR', async (message) => {
     }));
     return allResults;
 });
-
-onMessage('UPDATE_SETTINGS', async (message) => {
-    const settings = message.data || {};
-    const local = await getLocalSettings();
-    if (local.geminiApiKey) settings.geminiApiKey = local.geminiApiKey;
-    const prevEngine = pipelineConfig.asr.engine;
-    updatePipelineConfig(settings);
-    if (settings.asrBackend && settings.asrBackend !== prevEngine) {
-        await pipelineController.setEngine(settings.asrBackend);
-        await pipelineController.preload();
-    }
-    pipelineController.syncTranslator();
-});
-
-
-
-

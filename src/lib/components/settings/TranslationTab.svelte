@@ -5,21 +5,14 @@
     import * as Card from "$lib/components/ui/card/index.js";
     import { i18n } from "#i18n";
     import { TRANSLATION_LANGUAGES } from "$lib/languages/translation";
+    import { asrConfig, translationConfig } from "$lib/settings/index.ts";
     import { createASR } from "@/engine/asr/index.js";
 
-    let {
-        service = $bindable("none"),
-        targetLanguage = $bindable("zh-TW"),
-        showOriginal = $bindable(true),
-        asrBackend = $bindable("nemotron"),
-        onSave = () => {},
-    }: {
-        service: string;
-        targetLanguage: string;
-        showOriginal: boolean;
-        asrBackend: string;
-        onSave: () => void;
-    } = $props();
+    let _rev = $state(0);
+    $effect(() => {
+        const unsub = translationConfig.onChange(() => _rev++);
+        return unsub;
+    });
 
     let SERVICES = $state([
         { value: "none", label: i18n.t("options.noTranslation") },
@@ -28,8 +21,9 @@
     ]);
 
     $effect(() => {
+        _rev; // trigger re-run when store changes
         try {
-            const asr = createASR(asrBackend);
+            const asr = createASR(asrConfig.engine);
             if (asr.providesTranslation) {
                 SERVICES = [
                     { value: "none", label: i18n.t("options.noTranslation") },
@@ -52,8 +46,6 @@
             ];
         }
     });
-
-
 </script>
 
 <Card.Root>
@@ -64,37 +56,31 @@
         <div class="grid gap-2">
             <Label>{i18n.t("options.translationService")}</Label>
             <Combobox
-                value={service}
-                options={SERVICES.map((s) => ({ value: s.value, label: s.label }))}
-                onSelect={(v: string) => {
-                    service = v;
-                    onSave();
-                }}
+                value={translationConfig.service}
+                options={(_rev, SERVICES.map((s) => ({ value: s.value, label: s.label })))}
+                onSelect={(v: string) => { translationConfig.service = v; }}
                 class="w-full"
             />
         </div>
 
-        {#if service !== "none"}
+        {#if _rev !== undefined && translationConfig.service !== "none"}
             <div class="flex items-center justify-between">
                 <Label for="show-original"
                     >{i18n.t("options.showOriginal")}</Label
                 >
                 <Switch
                     id="show-original"
-                    bind:checked={showOriginal}
-                    onCheckedChange={onSave}
+                    checked={translationConfig.showOriginal}
+                    onCheckedChange={(v: boolean) => { translationConfig.showOriginal = v; }}
                 />
             </div>
 
             <div class="grid gap-2">
                 <Label>{i18n.t("options.targetLanguage")}</Label>
                 <Combobox
-                    value={targetLanguage}
-                    options={TRANSLATION_LANGUAGES.map((l) => ({ value: l.value, label: l.label }))}
-                    onSelect={(v: string) => {
-                        targetLanguage = v;
-                        onSave();
-                    }}
+                    value={translationConfig.target}
+                    options={(_rev, TRANSLATION_LANGUAGES.map((l) => ({ value: l.value, label: l.label })))}
+                    onSelect={(v: string) => { translationConfig.target = v; }}
                     searchable={true}
                     class="w-full"
                 />

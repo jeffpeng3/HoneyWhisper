@@ -8,28 +8,9 @@
     import { getAsrLanguages } from "$lib/languages/asr";
     import { sendMessage, onMessage } from "$lib/messaging";
     import { onDestroy } from "svelte";
+    import { asrConfig } from "$lib/settings/index.ts";
 
-    let {
-        profile = $bindable("NORMAL"),
-        beamWidth = $bindable(1),
-        language = $bindable("ja"),
-        vadEnabled = $bindable(false),
-        vadThreshold = $bindable(0.01),
-        vadMinSpeech = $bindable(0.25),
-        vadMinSilence = $bindable(0.4),
-        vadHold = $bindable(0.15),
-        onSave = () => {},
-    }: {
-        profile: string;
-        beamWidth: number;
-        language: string;
-        vadEnabled: boolean;
-        vadThreshold: number;
-        vadMinSpeech: number;
-        vadMinSilence: number;
-        vadHold: number;
-        onSave: () => void;
-    } = $props();
+    let { _rev = 0 }: { _rev?: number } = $props();
 
     const PROFILES = [
         { value: "TURBO", label: "80ms" },
@@ -95,12 +76,9 @@
     <div class="grid gap-2">
         <Label>{i18n.t("options.sourceLanguage")}</Label>
         <Combobox
-            value={language}
+            value={asrConfig.nemotron.language}
             options={LANGUAGES}
-            onSelect={(v: string) => {
-                language = v;
-                onSave();
-            }}
+            onSelect={(v: string) => { asrConfig.nemotron.language = v; }}
             searchable={true}
             class="w-full"
         />
@@ -109,12 +87,9 @@
     <div class="grid gap-2">
         <Label>{i18n.t("options.profile")}</Label>
         <Combobox
-            value={profile}
+            value={asrConfig.nemotron.profile}
             options={PROFILES.map((p) => ({ value: p.value, label: p.label }))}
-            onSelect={(v: string) => {
-                profile = v;
-                onSave();
-            }}
+            onSelect={(v: string) => { asrConfig.nemotron.profile = v; }}
             class="w-full"
         />
     </div>
@@ -122,12 +97,9 @@
     <div class="grid gap-2">
         <Label>{i18n.t("options.beamWidth")}</Label>
         <Combobox
-            value={String(beamWidth)}
+            value={String(asrConfig.nemotron.beamWidth)}
             options={BEAM_OPTIONS.map((b) => ({ value: b.value, label: b.label }))}
-            onSelect={(v: string) => {
-                beamWidth = parseInt(v);
-                onSave();
-            }}
+            onSelect={(v: string) => { asrConfig.nemotron.beamWidth = parseInt(v); }}
             class="w-full"
         />
     </div>
@@ -136,71 +108,67 @@
         <div class="flex items-center justify-between">
             <Label>{i18n.t("options.vad")}</Label>
             <Switch
-                bind:checked={vadEnabled}
-                onCheckedChange={onSave}
+                checked={asrConfig.nemotron.vad.enabled}
+                onCheckedChange={(v: boolean) => { asrConfig.nemotron.vad.enabled = v; }}
             />
         </div>
 
-        {#if vadEnabled}
+        {#if asrConfig.nemotron.vad.enabled}
             <div class="ml-4 space-y-4">
                 <div class="grid gap-2">
                     <div class="flex justify-between">
                         <Label>{i18n.t("options.vadThreshold")}</Label>
-                        <span class="text-sm text-muted-foreground">{vadThreshold.toFixed(3)}</span>
+                        <span class="text-sm text-muted-foreground">{asrConfig.nemotron.vad.threshold.toFixed(3)}</span>
                     </div>
                     <Slider
                         type="single"
                         min={0.001}
                         max={0.05}
                         step={0.001}
-                        value={[vadThreshold]}
-                        onValueChange={(v: number[]) => { vadThreshold = v[0]; }}
-                        onValueCommit={onSave}
+                        value={[asrConfig.nemotron.vad.threshold]}
+                        onValueChange={(v: number[]) => { asrConfig.nemotron.vad.threshold = v[0]; }}
                     />
                 </div>
                 <div class="grid gap-2">
                     <div class="flex justify-between">
                         <Label>{i18n.t("options.vadMinSpeech")}</Label>
-                        <span class="text-sm text-muted-foreground">{vadMinSpeech.toFixed(2)}s</span>
+                        <span class="text-sm text-muted-foreground">{asrConfig.nemotron.vad.minSpeech.toFixed(2)}s</span>
                     </div>
                     <Slider
                         type="single"
                         min={0.05}
                         max={1.0}
                         step={0.05}
-                        value={[vadMinSpeech]}
-                        onValueChange={(v: number[]) => { vadMinSpeech = v[0]; }}
-                        onValueCommit={onSave}
+                        value={[asrConfig.nemotron.vad.minSpeech]}
+                        onValueChange={(v: number[]) => { asrConfig.nemotron.vad.minSpeech = v[0]; }}
                     />
                 </div>
                 <div class="grid gap-2">
                     <div class="flex justify-between">
                         <Label>{i18n.t("options.vadMinSilence")}</Label>
-                        <span class="text-sm text-muted-foreground">{vadMinSilence.toFixed(2)}s</span>
+                        <span class="text-sm text-muted-foreground">{asrConfig.nemotron.vad.minSilence.toFixed(2)}s</span>
                     </div>
                     <Slider
                         type="single"
                         min={0.1}
                         max={2.0}
                         step={0.05}
-                        value={[vadMinSilence]}
-                        onValueChange={(v: number[]) => { vadMinSilence = v[0]; }}
-                        onValueCommit={onSave}
+                        value={[asrConfig.nemotron.vad.minSilence]}
+                        onValueChange={(v: number[]) => { asrConfig.nemotron.vad.minSilence = v[0]; }}
                     />
                 </div>
                 <div class="grid gap-2">
                     <div class="flex justify-between">
                         <Label>{i18n.t("options.vadHold")}</Label>
-                        <span class="text-sm text-muted-foreground">{vadHold.toFixed(2)}s</span>
+                        <span class="text-sm text-muted-foreground">{asrConfig.nemotron.vad.hold.toFixed(2)}s</span>
                     </div>
                     <Slider
                         type="single"
                         min={0.0}
                         max={0.5}
                         step={0.05}
-                        value={[vadHold]}
-                        onValueChange={(v: number[]) => { vadHold = v[0]; }}
-                        onValueCommit={onSave}
+                        value={[asrConfig.nemotron.vad.hold]}
+                        onValueChange={(v: number[]) => { asrConfig.nemotron.vad.hold = v[0]; }}
                     />
                 </div>
             </div>

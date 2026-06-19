@@ -1,5 +1,5 @@
 import { sendMessage } from "$lib/messaging";
-import { pipelineConfig } from "./PipelineConfig.ts";
+import { asrConfig } from "$lib/settings/index.ts";
 import { pipelineController } from "./PipelineController.js";
 
 const FLUSH_SAMPLES = 3200;
@@ -18,7 +18,8 @@ export class AudioRecorder {
 
     async startRecording(streamId) {
         try {
-            await pipelineController.startStreaming(pipelineConfig.asr.language);
+            const lang = asrConfig.engine === 'gemini' ? asrConfig.gemini.language : asrConfig.nemotron.language;
+            await pipelineController.startStreaming(lang);
 
             this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
