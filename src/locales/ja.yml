@@ -18,6 +18,8 @@ popup:
   unknownError: "不明なエラー"
   tabNameFallback: "タブ名"
   stuckError: "モデルの読み込みに失敗しました。拡張機能を再読み込みしてください。"
+  asrBackend: "ASR: "
+  translationMode: "翻訳: "
 options:
   title: 設定
   displayTab: 表示
@@ -82,7 +84,7 @@ benchmark:
   running: "実行中..."
   initializing: "モデルを初期化中..."
   profileLabel: "プロファイル"
-  beam: "Beam={0}"
+  beam: "Beam=$1"
   desc: "パフォーマンスをテストして、デバイスに最適なレイテンシー設定を見つけましょう。"
   note: "速度倍率 (1/RTF)。緑=リアルタイム以上 (≥1.1×)、赤=遅い。"
   errorPrefix: "エラー: "

@@ -4,24 +4,30 @@
   import { ModeWatcher } from "mode-watcher";
   import { sendMessage, onMessage } from "$lib/messaging";
   import { i18n } from "#i18n";
+  import { asrConfig, translationConfig } from "$lib/settings/index.ts";
 
   import { Button } from "$lib/components/ui/button/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Progress } from "$lib/components/ui/progress/index.js";
   import { Settings, MicOff, LoaderCircle, Download, Play } from "lucide-svelte";
 
-  let isRecording = false;
-  let isLoading = false;
-  let modelReady = false;
-  let isDownloading = false;
-  let initProgress = 0;
-  let initText = "";
-  let stuck = false;
+  let isRecording = $state(false);
+  let isLoading = $state(false);
+  let modelReady = $state(false);
+  let isDownloading = $state(false);
+  let initProgress = $state(0);
+  let initText = $state("");
+  let stuck = $state(false);
 
-  let activeTabTitle = i18n.t("popup.tabNameFallback");
+  let activeTabTitle = $state(i18n.t("popup.tabNameFallback"));
+  let configAsr = $state("");
+  let configTranslation = $state("");
   let cleanupListeners = [];
 
   onMount(async () => {
+    await Promise.all([asrConfig.load(), translationConfig.load()]);
+    configAsr = asrConfig.engine;
+    configTranslation = translationConfig.service;
     try {
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       activeTabTitle = tab?.title || i18n.t("popup.tabNameFallback");
@@ -76,7 +82,21 @@
       stuck = false;
     });
 
-    cleanupListeners = [unsub1, unsub2, unsub3];
+    try {
+      var b = globalThis.browser || globalThis.chrome;
+      if (b && b.storage) {
+        var handler = function(changes, area) {
+          if (changes.asr) configAsr = changes.asr.newValue.engine;
+          if (changes.translation) configTranslation = changes.translation.newValue.service;
+        };
+        b.storage.onChanged.addListener(handler);
+        cleanupListeners = [unsub1, unsub2, unsub3, function() { b.storage.onChanged.removeListener(handler); }];
+      } else {
+        cleanupListeners = [unsub1, unsub2, unsub3];
+      }
+    } catch (e) {
+      cleanupListeners = [unsub1, unsub2, unsub3];
+    }
   });
 
   onDestroy(() => {
@@ -134,6 +154,13 @@
   <div class="flex items-center justify-center gap-2 text-sm text-muted-foreground truncate">
     <span class="truncate">{activeTabTitle}</span>
   </div>
+
+  {#if configAsr}
+    <div class="text-xs text-muted-foreground space-y-0.5">
+      <p>{i18n.t("popup.asrBackend") + configAsr}</p>
+      <p>{i18n.t("popup.translationMode") + configTranslation}</p>
+    </div>
+  {/if}
 
   <div class="flex gap-2">
     <Button

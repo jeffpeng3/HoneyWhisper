@@ -18,6 +18,8 @@ popup:
   unknownError: "Unknown Error"
   tabNameFallback: "Tab Name"
   stuckError: "Failed to load model. Please reload the extension."
+  asrBackend: "ASR: "
+  translationMode: "Translation: "
 options:
   title: Settings
   displayTab: Display
@@ -82,7 +84,7 @@ benchmark:
   running: "Running..."
   initializing: "Initializing model..."
   profileLabel: "Profile"
-  beam: "Beam={0}"
+  beam: "Beam=$1"
   desc: "Test performance to find the best latency setting for your device."
   note: "Showing speed factor (1/RTF). Green if real-time (≥1.1×), red if slower."
   errorPrefix: "Error: "

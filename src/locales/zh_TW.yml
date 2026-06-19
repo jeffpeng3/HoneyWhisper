@@ -18,6 +18,8 @@ popup:
   unknownError: "未知錯誤"
   tabNameFallback: "分頁名稱"
   stuckError: "無法載入模型，請重新載入擴充功能。"
+  asrBackend: "ASR 引擎: "
+  translationMode: "翻譯模式: "
 options:
   title: 設定
   displayTab: 顯示設定
@@ -82,7 +84,7 @@ benchmark:
   running: "執行中..."
   initializing: "正在初始化模型..."
   profileLabel: "延遲設定"
-  beam: "Beam={0}"
+  beam: "Beam=$1"
   desc: "測試效能以找出適合你裝置的延遲檔位。"
   note: "顯示速度倍率 (1/RTF)。綠色表示即時 (≥1.1×)，紅色表示較慢。"
   errorPrefix: "錯誤: "
