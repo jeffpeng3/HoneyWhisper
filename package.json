@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@internationalized/date": "^3.11.0",
-    "@lucide/svelte": "^1.20.0",
+    "@lucide/svelte": "^1.21.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@wxt-dev/i18n": "^0.2.5",
     "@wxt-dev/module-svelte": "^2.0.5",
