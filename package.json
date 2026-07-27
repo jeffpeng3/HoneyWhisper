@@ -14,7 +14,7 @@
     "@jeffpeng3/nemotron-asr-core": "^0.2.3",
     "@ricky0123/vad-web": "^0.0.30",
     "@webext-core/messaging": "^2.3.0",
-    "@webext-core/storage": "^1.2.0",
+    "@webext-core/storage": "^2.0.0",
     "budoux": "^0.8.1",
     "fft.js": "^4.0.4",
     "mode-watcher": "^1.1.0"
